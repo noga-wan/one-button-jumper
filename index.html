@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>One Button Jumper</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0f0f1e; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none; font-family: system-ui, sans-serif; }
+  [hidden] { display: none !important; }
+  #wrap { position: relative; width: min(100vw, 200vh); aspect-ratio: 2 / 1; }
+  canvas { display: block; width: 100%; height: 100%; border-radius: 6px; }
+
+  #storeBtn {
+    position: absolute; left: 50%; top: 82%; transform: translateX(-50%);
+    font: bold clamp(12px, 2vw, 18px) system-ui, sans-serif; padding: .5em 1.6em;
+    border: none; border-radius: 999px; background: #ffcc33; color: #1b1446; cursor: pointer;
+    box-shadow: 0 4px 0 #b8871a, 0 0 20px rgba(255, 204, 51, .4);
+  }
+  #storeBtn:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 2px 0 #b8871a; }
+
+  #store {
+    position: absolute; inset: 0; box-sizing: border-box; padding: 2% 2.5%;
+    background: rgba(14, 11, 34, .97); color: #fff; border-radius: 6px;
+    display: flex; flex-direction: column; font-size: clamp(10px, 1.5vw, 15px);
+  }
+  #store .top { display: flex; align-items: center; gap: 1em; }
+  #store h2 { margin: 0; font-size: 1.8em; letter-spacing: .05em; }
+  #storeCoins { margin-left: auto; font-weight: bold; font-size: 1.3em; color: #ffd23f; }
+  #closeStore { background: #2c2552; color: #fff; border: none; border-radius: 8px; font-size: 1.2em; padding: .3em .7em; cursor: pointer; }
+  #tabs { display: flex; gap: .5em; margin: .8em 0 .2em; flex-wrap: wrap; }
+  #tabs button { background: #221c45; color: #cfc8ff; border: none; border-radius: 999px; padding: .45em 1.1em; font: inherit; cursor: pointer; }
+  #tabs button.on { background: #7f6bff; color: #fff; }
+  #grid {
+    flex: 1; overflow-y: auto; display: grid; gap: .8em; padding: .8em .2em .2em; align-content: start;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(110px, 17vw, 170px), 1fr));
+  }
+  .card { background: #1d1840; border: 2px solid transparent; border-radius: 12px; padding: .7em; display: flex; flex-direction: column; gap: .35em; }
+  .card.eq { border-color: #5ee6ff; box-shadow: 0 0 12px rgba(94, 230, 255, .3); }
+  .preview { height: 3.4em; border-radius: 8px; background: #120f2b; display: flex; align-items: center; justify-content: center; font-size: 1.9em; }
+  .swatch { width: 1.1em; height: 1.1em; border-radius: 3px; }
+  .name { font-weight: bold; }
+  .desc { opacity: .7; font-size: .88em; flex: 1; }
+  .extra { color: #ffd23f; font-size: .85em; }
+  .card button { border: none; border-radius: 8px; padding: .45em; font: bold 1em system-ui, sans-serif; cursor: pointer; background: #ffcc33; color: #1b1446; }
+  .card button:disabled { background: #39335e; color: #8f88b8; cursor: default; }
+  .card.eq button:disabled { background: #5ee6ff33; color: #5ee6ff; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <button id="storeBtn">🛒 Store</button>
+  <div id="store" hidden>
+    <div class="top">
+      <h2>STORE</h2>
+      <div id="storeCoins"></div>
+      <button id="closeStore" title="Close (Esc)">✕</button>
+    </div>
+    <div id="tabs"></div>
+    <div id="grid"></div>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const storeEl = document.getElementById('store'), storeBtn = document.getElementById('storeBtn');
+const W = 800, H = 400, GROUND = 320, BAR_GAP = 130;
+const G = 2400, JUMP = 820, DJUMP = 720, CUT = 0.5;
+const COYOTE = 0.08, BUFFER = 0.12;
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+// ---------- levels ----------
+// at: distance in meters where the level starts. Each level adds or mixes hazards.
+const LEVELS = [
+  { name: 'Moonlit Meadow', at: 0,    speed: 360, gapMin: 60, gapMax: 110, spikeMax: 1, bar: 0,    saw: 0,    segMin: 380, segMax: 650,
+    pal: { sky1: '#1b1446', sky2: '#4a2a6b', hill1: '#3a2460', hill2: '#2c1c4d', ground: '#20183a', edge: '#7f6bff', spike: '#ff5d73' } },
+  { name: 'Twin Thorns',    at: 200,  speed: 420, gapMin: 70, gapMax: 150, spikeMax: 2, bar: 0,    saw: 0,    segMin: 340, segMax: 600,
+    pal: { sky1: '#0f2a3a', sky2: '#1f5a5e', hill1: '#1b4a50', hill2: '#133a40', ground: '#0d2228', edge: '#4fe3c1', spike: '#ff6b6b' } },
+  { name: 'Low Ceiling',    at: 450,  speed: 450, gapMin: 70, gapMax: 160, spikeMax: 2, bar: 0.45, saw: 0,    segMin: 340, segMax: 600,
+    pal: { sky1: '#3a1530', sky2: '#c2553a', hill1: '#7a2f3a', hill2: '#521f30', ground: '#2a1020', edge: '#ffb347', spike: '#ff2e63' } },
+  { name: 'Sawmill',        at: 750,  speed: 480, gapMin: 70, gapMax: 170, spikeMax: 2, bar: 0.2,  saw: 0.5,  segMin: 340, segMax: 600,
+    pal: { sky1: '#1e1e24', sky2: '#4a3b2f', hill1: '#3b3028', hill2: '#2a231e', ground: '#18140f', edge: '#ff8c42', spike: '#e63946' } },
+  { name: 'Island Hopping', at: 1100, speed: 500, gapMin: 80, gapMax: 190, spikeMax: 1, bar: 0,    saw: 0.15, segMin: 150, segMax: 300,
+    pal: { sky1: '#0a1f44', sky2: '#2b6cb0', hill1: '#1d4e89', hill2: '#143a6b', ground: '#0b1a33', edge: '#7cf0ff', spike: '#ff5d73' } },
+  { name: 'Storm Peak',     at: 1500, speed: 540, gapMin: 80, gapMax: 200, spikeMax: 3, bar: 0.35, saw: 0.35, segMin: 260, segMax: 520,
+    pal: { sky1: '#111318', sky2: '#3c4452', hill1: '#2b313c', hill2: '#1e232c', ground: '#0d0f13', edge: '#b8c4ff', spike: '#ff4d6d' } },
+  { name: 'Inferno',        at: 2000, speed: 580, gapMin: 90, gapMax: 220, spikeMax: 3, bar: 0.4,  saw: 0.45, segMin: 220, segMax: 460,
+    pal: { sky1: '#2a0505', sky2: '#8a1c0c', hill1: '#5a1208', hill2: '#3d0c06', ground: '#1a0402', edge: '#ffcf3f', spike: '#ffffff' } },
+];
+const ENDLESS_EVERY = 500;
+
+// After the last level, keep going: faster each time, cycling the palettes.
+function levelAt(meters) {
+  const lastL = LEVELS[LEVELS.length - 1];
+  if (meters < lastL.at + ENDLESS_EVERY) {
+    let i = 0;
+    while (i + 1 < LEVELS.length && meters >= LEVELS[i + 1].at) i++;
+    return { ...LEVELS[i], index: i };
+  }
+  const n = Math.floor((meters - lastL.at) / ENDLESS_EVERY);
+  return {
+    ...lastL, index: LEVELS.length - 1 + n,
+    name: 'Endless ' + n, at: lastL.at + n * ENDLESS_EVERY,
+    speed: Math.min(760, lastL.speed + 30 * n),
+    gapMax: Math.min(240, lastL.gapMax + 5 * n),
+    pal: LEVELS[1 + (n % (LEVELS.length - 1))].pal,
+  };
+}
+function nextLevelAt(L) {
+  return L.index + 1 < LEVELS.length ? LEVELS[L.index + 1].at : L.at + ENDLESS_EVERY;
+}
+
+function mixHex(a, b, k) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ch = s => Math.round(((pa >> s) & 255) * (1 - k) + ((pb >> s) & 255) * k);
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+}
+
+// ---------- store items ----------
+const ITEMS = {
+  skins: [
+    { id: 'cyan',     name: 'Classic',   price: 0,   color: '#5ee6ff', desc: 'The original glow cube.' },
+    { id: 'lime',     name: 'Lime',      price: 40,  color: '#7dff6b', desc: 'Zesty.' },
+    { id: 'pink',     name: 'Bubblegum', price: 60,  color: '#ff6bd6', desc: 'Sweet and stretchy.' },
+    { id: 'midnight', name: 'Midnight',  price: 120, color: '#111111', glow: '#ffffff', eyes: '#ffffff', desc: 'Pure black with a white aura.' },
+    { id: 'gold',     name: 'Gold',      price: 150, color: '#ffd23f', desc: 'Shiny. Very shiny.' },
+    { id: 'ghost',    name: 'Ghost',     price: 180, special: 'ghost', desc: 'Spooky and see-through.' },
+    { id: 'lava',     name: 'Lava',      price: 220, special: 'lava', desc: 'Bubbles and pulses with heat.' },
+    { id: 'rainbow',  name: 'Rainbow',   price: 300, special: 'rainbow', desc: 'Every color, all the time.' },
+  ],
+  trails: [
+    { id: 't_none',    name: 'No Trail', price: 0,   icon: '🚫', desc: 'Clean and simple.' },
+    { id: 't_sparkle', name: 'Sparkles', price: 80,  icon: '✨', desc: 'Leave stardust behind you.' },
+    { id: 't_fire',    name: 'Fire',     price: 140, icon: '🔥', desc: 'You are literally on fire.' },
+    { id: 't_rainbow', name: 'Rainbow',  price: 200, icon: '🌈', desc: 'A ribbon of pure joy.' },
+  ],
+  weapons: [
+    { id: 'w_none',   name: 'Bare Hands',    price: 0,   icon: '🚫', desc: 'Dodge everything yourself.' },
+    { id: 'w_pea',    name: 'Pea Blaster',   price: 150, icon: '🔫', desc: '3 shots per run. Auto-fires at the next hazard.' },
+    { id: 'w_laser',  name: 'Laser Eyes',    price: 350, icon: '👁️', desc: 'Vaporizes a hazard ahead every 4 seconds.' },
+    { id: 'w_stomp',  name: 'Thunder Stomp', price: 500, icon: '⚡', desc: 'Land after a double jump to blast ground hazards ahead.' },
+    { id: 'w_blades', name: 'Orbit Blades',  price: 800, icon: '🌀', desc: '2 spinning blades smash what they touch. Regrow after 5s.' },
+  ],
+  upgrades: [
+    { id: 'shield',    name: 'Shield',       prices: [150, 400], icon: '🛡️', desc: 'Start each run with a shield that absorbs one hit (or saves you from a pit).' },
+    { id: 'magnet',    name: 'Coin Magnet',  prices: [100, 250], icon: '🧲', desc: 'Pull in nearby coins. Level 2 has a bigger range.' },
+    { id: 'triple',    name: 'Triple Jump',  prices: [500],      icon: '🦘', desc: 'One extra jump in mid-air.' },
+    { id: 'doubler',   name: 'Coin Doubler', prices: [600],      icon: '💰', desc: 'Every coin you pick up counts twice.' },
+    { id: 'headstart', name: 'Head Start',   price: 60,          icon: '🚀', consumable: true, desc: 'Next run starts at Level 3. Used automatically.' },
+  ],
+};
+const SLOT = { skins: 'skin', trails: 'trail', weapons: 'weapon' };
+const byId = id => Object.values(ITEMS).flat().find(i => i.id === id);
+
+const SAVE_KEY = 'oneButtonJumperSave';
+const save = Object.assign(
+  { coins: 0, owned: { cyan: 1, t_none: 1, w_none: 1 }, skin: 'cyan', trail: 't_none', weapon: 'w_none', upg: {}, headStarts: 0 },
+  JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'));
+save.upg = Object.assign({ shield: 0, magnet: 0, triple: 0, doubler: 0 }, save.upg);
+const persist = () => localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+
+function skinSwatch(it) {
+  if (it.special === 'rainbow') return 'background:linear-gradient(135deg,#ff5d73,#ffd23f,#7dff6b,#5ee6ff,#b06bff)';
+  if (it.special === 'lava') return 'background:linear-gradient(135deg,#ff4500,#ffcc00);box-shadow:0 0 14px #ff6a00';
+  if (it.special === 'ghost') return 'background:rgba(255,255,255,.45);box-shadow:0 0 14px #fff';
+  return `background:${it.color};box-shadow:0 0 14px ${it.glow || it.color}`;
+}
+
+let tab = 'skins';
+function renderStore() {
+  document.getElementById('storeCoins').textContent = '🪙 ' + save.coins;
+  const tabsEl = document.getElementById('tabs'), gridEl = document.getElementById('grid');
+  tabsEl.innerHTML = '';
+  for (const [key, label] of [['skins', '🎨 Colors'], ['trails', '✨ Trails'], ['weapons', '⚔️ Weapons'], ['upgrades', '⬆️ Upgrades']]) {
+    const b = document.createElement('button');
+    b.textContent = label; if (key === tab) b.className = 'on';
+    b.onclick = () => { tab = key; renderStore(); };
+    tabsEl.appendChild(b);
+  }
+  gridEl.innerHTML = '';
+  for (const it of ITEMS[tab]) {
+    let label, action = null, equipped = false, extra = '';
+    if (tab === 'upgrades') {
+      if (it.consumable) {
+        extra = 'You have: ' + save.headStarts;
+        label = 'Buy 🪙' + it.price;
+        if (save.coins >= it.price) action = () => { save.coins -= it.price; save.headStarts++; };
+      } else {
+        const lvl = save.upg[it.id];
+        extra = 'Level ' + lvl + ' / ' + it.prices.length;
+        if (lvl >= it.prices.length) label = 'Maxed';
+        else {
+          const price = it.prices[lvl];
+          label = (lvl ? 'Upgrade' : 'Buy') + ' 🪙' + price;
+          if (save.coins >= price) action = () => { save.coins -= price; save.upg[it.id]++; };
+        }
+      }
+    } else {
+      const slot = SLOT[tab];
+      if (save[slot] === it.id) { label = 'Equipped'; equipped = true; }
+      else if (save.owned[it.id]) { label = 'Equip'; action = () => { save[slot] = it.id; }; }
+      else {
+        label = 'Buy 🪙' + it.price;
+        if (save.coins >= it.price) action = () => { save.coins -= it.price; save.owned[it.id] = 1; save[slot] = it.id; };
+      }
+    }
+    const card = document.createElement('div');
+    card.className = 'card' + (equipped ? ' eq' : '');
+    const icon = tab === 'skins' ? `<div class="swatch" style="${skinSwatch(it)}"></div>` : it.icon;
+    card.innerHTML = `<div class="preview">${icon}</div><div class="name">${it.name}</div><div class="desc">${it.desc}</div>` +
+      (extra ? `<div class="extra">${extra}</div>` : '');
+    const b = document.createElement('button');
+    b.textContent = label; b.disabled = !action;
+    if (action) b.onclick = () => { action(); persist(); renderStore(); };
+    card.appendChild(b);
+    gridEl.appendChild(card);
+  }
+}
+function openStore() { if (state !== 'play') { storeEl.hidden = false; renderStore(); } }
+function closeStore() { storeEl.hidden = true; }
+storeBtn.onclick = () => { storeBtn.blur(); openStore(); };
+document.getElementById('closeStore').onclick = e => { e.currentTarget.blur(); closeStore(); };
+
+// ---------- state ----------
+let state = 'menu', segs, spikes, blocks, saws, coins, parts, popups, shots, beams, rings, trail;
+let speed, dist, startDist, shake = 0, deadAt = 0, t = 0;
+let level, prevPal, palBlend, banner;
+let runCoins, lastBonus, shieldLeft, invuln, ammo, laserCd, blades;
+let best = +localStorage.getItem('oneButtonJumperBest') || 0;
+const p = { x: 150, y: 0, w: 28, h: 28, vy: 0, onGround: true, jumps: 0, coyote: 0, buffer: 0, rot: 0, cut: false };
+const maxJumps = () => 2 + save.upg.triple;
+
+function reset(startMeters = 0) {
+  segs = [{ x: -100, w: 900 }];
+  spikes = []; blocks = []; saws = []; coins = []; parts = []; popups = []; shots = []; beams = []; rings = []; trail = [];
+  dist = startDist = startMeters * 10;
+  level = levelAt(startMeters); prevPal = level.pal; palBlend = 1;
+  speed = level.speed;
+  banner = { title: 'Level ' + (level.index + 1), sub: level.name, time: 2.2 };
+  runCoins = 0; shieldLeft = save.upg.shield; invuln = 0;
+  ammo = 3; laserCd = 1.5;
+  blades = [0, Math.PI].map(a => ({ a, alive: true, regen: 0 }));
+  Object.assign(p, { y: GROUND - p.h, vy: 0, onGround: true, jumps: 0, coyote: 0, buffer: 0, rot: 0, cut: false });
+}
+function startRun() {
+  if (save.headStarts > 0) {
+    save.headStarts--; persist();
+    reset(LEVELS[2].at);
+    banner = { title: '🚀 Head Start!', sub: 'Level 3 · ' + level.name, time: 2.5 };
+  } else reset();
+  state = 'play';
+}
+reset();
+
+// ---------- level generation ----------
+function addCoin(x, y) { coins.push({ x, y, gem: Math.random() < 0.04 }); }
+
+function genSeg() {
+  const last = segs[segs.length - 1];
+  const start = last.x + last.w;
+  // which level will this ground belong to when the player reaches it?
+  const L = levelAt((dist + (start - p.x)) / 10);
+  const g = rand(L.gapMin, Math.min(L.speed * 0.45, L.gapMax));
+  const seg = { x: start + g, w: rand(L.segMin, L.segMax) };
+  segs.push(seg);
+  // coin arc over the gap
+  if (Math.random() < 0.45) [[0.25, 70], [0.5, 95], [0.75, 70]].forEach(([k, h]) => addCoin(start + g * k, GROUND - h));
+
+  // hazards on the segment, spaced so they're always clearable
+  let x = seg.x + rand(110, 180);
+  const minSpace = L.speed * 0.75;
+  while (x < seg.x + seg.w - 90) {
+    if (Math.random() < L.saw) {
+      if (x + 40 > seg.x + seg.w - 70) break;
+      saws.push({ x: x + 20, r: 16, phase: rand(0, Math.PI * 2), spin: 0 });
+      x += 40 + rand(minSpace, minSpace * 2);
+      continue;
+    }
+    const n = 1 + Math.floor(Math.random() * L.spikeMax);
+    const w = n * 22;
+    if (x + w > seg.x + seg.w - 70) break;
+    spikes.push({ x, w, h: 26 });
+    // a hanging bar above the spikes: a full jump hits it, so use a short hop
+    if (Math.random() < L.bar) {
+      blocks.push({ x: x - 30, y: 0, w: w + 60, h: GROUND - BAR_GAP });
+      if (Math.random() < 0.5) addCoin(x + w / 2, GROUND - 70);
+    } else if (Math.random() < 0.5) {
+      [[-28, 55], [0, 78], [28, 55]].forEach(([dx, h]) => addCoin(x + w / 2 + dx, GROUND - h));
+    }
+    x += w + rand(minSpace, minSpace * 2.2);
+  }
+}
+const sawY = s => GROUND - 70 + Math.sin(t * 2.2 + s.phase) * 45;
+
+// ---------- input ----------
+function press() {
+  if (!storeEl.hidden) return;
+  if (state === 'menu') startRun();
+  else if (state === 'dead') { if (performance.now() - deadAt > 450) startRun(); }
+  else if (p.onGround || p.coyote > 0) p.buffer = BUFFER;
+  else if (p.jumps < maxJumps()) {
+    p.vy = -DJUMP; p.jumps++; p.cut = false;
+    burst(p.x + p.w / 2, p.y + p.h, 10, '#9be7ff');
+  } else p.buffer = BUFFER;
+}
+function release() {
+  if (state === 'play' && p.vy < 0 && !p.cut) { p.vy *= CUT; p.cut = true; }
+}
+const KEYS = ['Space', 'ArrowUp', 'KeyW', 'Enter'];
+addEventListener('keydown', e => {
+  if (e.code === 'Escape') return closeStore();
+  if (e.code === 'KeyS' && storeEl.hidden) return openStore();
+  if (KEYS.includes(e.code)) { e.preventDefault(); if (!e.repeat) press(); }
+});
+addEventListener('keyup', e => { if (KEYS.includes(e.code)) { e.preventDefault(); release(); } });
+cv.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
+addEventListener('pointerup', release);
+addEventListener('pointercancel', release);
+
+// ---------- effects ----------
+function burst(x, y, n, color, g = 900) {
+  for (let i = 0; i < n; i++)
+    parts.push({ x, y, vx: rand(-160, 160), vy: rand(-260, -40), life: rand(0.3, 0.7), max: 0.7, color, s: rand(2, 5), g });
+}
+function popup(x, y, text, color = '#fff') { popups.push({ x, y, text, color, life: 0.9 }); }
+
+// ---------- hazards & weapons ----------
+function hazardCenter(kind, o) {
+  if (kind === 'spike') return [o.x + o.w / 2, GROUND - 13];
+  if (kind === 'saw') return [o.x, sawY(o)];
+  return [o.x + o.w / 2, o.h - 12];
+}
+function destroy(kind, o) {
+  if (o.dead) return;
+  o.dead = true;
+  if (kind === 'spike') spikes = spikes.filter(s => s !== o);
+  else if (kind === 'saw') saws = saws.filter(s => s !== o);
+  else blocks = blocks.filter(b => b !== o);
+  const [cx, cy] = hazardCenter(kind, o);
+  burst(cx, cy, 18, level.pal.spike);
+  burst(cx, cy, 8, '#ffffff');
+  shake = Math.max(shake, 4);
+  runCoins++; popup(cx, cy - 10, '+1', '#ffd23f');
+}
+// nearest untargeted hazard whose front edge is within `range` px ahead of the player
+function hazardAhead(range) {
+  let best = null, bd = Infinity;
+  const consider = (kind, o, front) => {
+    const d = front - (p.x + p.w);
+    if (!o.targeted && d > -10 && d < range && d < bd) { bd = d; best = { kind, o }; }
+  };
+  for (const s of spikes) consider('spike', s, s.x);
+  for (const s of saws) consider('saw', s, s.x - s.r);
+  for (const b of blocks) consider('bar', b, b.x);
+  return best;
+}
+function hazardTouches(kind, o, px, py, r) {
+  if (kind === 'saw') return (px - o.x) ** 2 + (py - sawY(o)) ** 2 < (o.r + r) ** 2;
+  const box = kind === 'spike' ? { x: o.x, y: GROUND - o.h, w: o.w, h: o.h } : o;
+  return hit({ x: px - r, y: py - r, w: r * 2, h: r * 2 }, box);
+}
+function allHazards() {
+  return [...spikes.map(o => ['spike', o]), ...saws.map(o => ['saw', o]), ...blocks.map(o => ['bar', o])];
+}
+
+function updateWeapons(dt) {
+  const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+  if (save.weapon === 'w_pea' && ammo > 0) {
+    const h = hazardAhead(240);
+    if (h) { h.o.targeted = true; ammo--; shots.push({ x: p.x + p.w, y: cy, ...h }); burst(p.x + p.w, cy, 5, '#7dff6b'); }
+  }
+  if (save.weapon === 'w_laser') {
+    laserCd -= dt;
+    if (laserCd <= 0) {
+      const h = hazardAhead(320);
+      if (h) {
+        const [hx, hy] = hazardCenter(h.kind, h.o);
+        beams.push({ x1: p.x + p.w - 6, y1: p.y + 8, x2: hx, y2: hy, life: 0.2 });
+        destroy(h.kind, h.o); laserCd = 4;
+      }
+    }
+  }
+  if (save.weapon === 'w_blades') {
+    for (const b of blades) {
+      b.a += 9 * dt;
+      if (!b.alive) { b.regen -= dt; if (b.regen <= 0) b.alive = true; continue; }
+      const bx = cx + Math.cos(b.a) * 38, by = cy + Math.sin(b.a) * 38;
+      for (const [kind, o] of allHazards()) {
+        if (hazardTouches(kind, o, bx, by, 13)) { destroy(kind, o); b.alive = false; b.regen = 5; burst(bx, by, 10, '#b8c4ff'); break; }
+      }
+    }
+  }
+  for (const s of shots) {
+    if (s.o.dead) { s.done = true; continue; }
+    const [hx, hy] = hazardCenter(s.kind, s.o);
+    const dx = hx - s.x, dy = hy - s.y, d = Math.hypot(dx, dy);
+    if (d < 14) { destroy(s.kind, s.o); s.done = true; continue; }
+    const step = Math.min(d, 1300 * dt);
+    s.x += dx / d * step; s.y += dy / d * step;
+  }
+  shots = shots.filter(s => !s.done);
+}
+function thunderStomp() {
+  rings.push({ x: p.x + p.w / 2, y: GROUND, r: 10, life: 0.45 });
+  shake = Math.max(shake, 8);
+  for (const s of [...spikes]) if (s.x < p.x + 260 && s.x + s.w > p.x - 30) destroy('spike', s);
+  for (const s of [...saws]) if (s.x < p.x + 260 && s.x > p.x - 30 && sawY(s) > GROUND - 90) destroy('saw', s);
+}
+
+// returns true if the player died
+function hurt(kind, o) {
+  if (invuln > 0) return false;
+  if (shieldLeft > 0) {
+    shieldLeft--; invuln = 1;
+    destroy(kind, o);
+    popup(p.x + p.w / 2, p.y - 10, 'SHIELD!', '#7cf0ff');
+    burst(p.x + p.w / 2, p.y + p.h / 2, 24, '#7cf0ff');
+    return false;
+  }
+  die(); return true;
+}
+// falling into a pit or hitting a ledge wall: the shield bounces you back up
+function rescue() {
+  if (shieldLeft > 0) {
+    shieldLeft--; invuln = 1;
+    p.vy = -JUMP * 1.05; p.jumps = 1; p.cut = true;
+    popup(p.x + p.w / 2, p.y - 10, 'SAVED!', '#7cf0ff');
+    burst(p.x + p.w / 2, p.y + p.h / 2, 24, '#7cf0ff');
+    return false;
+  }
+  die(); return true;
+}
+
+function die() {
+  state = 'dead'; deadAt = performance.now(); shake = 14;
+  burst(p.x + p.w / 2, p.y + p.h / 2, 40, '#ff5d73');
+  const score = Math.floor(dist / 10);
+  if (score > best) { best = score; localStorage.setItem('oneButtonJumperBest', best); }
+  lastBonus = Math.floor((dist - startDist) / 10 / 50);
+  save.coins += runCoins + lastBonus;
+  persist();
+}
+
+// ---------- update ----------
+function update(dt) {
+  t += dt;
+  for (const q of parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += q.g * dt; q.life -= dt; }
+  parts = parts.filter(q => q.life > 0);
+  for (const q of popups) { q.y -= 40 * dt; q.life -= dt; }
+  popups = popups.filter(q => q.life > 0);
+  for (const b of beams) b.life -= dt;
+  beams = beams.filter(b => b.life > 0);
+  for (const r of rings) { r.r += 600 * dt; r.life -= dt; }
+  rings = rings.filter(r => r.life > 0);
+  shake = Math.max(0, shake - 40 * dt);
+  if (banner) { banner.time -= dt; if (banner.time <= 0) banner = null; }
+  palBlend = Math.min(1, palBlend + dt);
+  if (state !== 'play') return;
+  invuln = Math.max(0, invuln - dt);
+
+  // level up?
+  const L = levelAt(dist / 10);
+  if (L.index !== level.index) {
+    prevPal = level.pal; palBlend = 0; level = L;
+    banner = { title: 'Level ' + (L.index + 1), sub: L.name, time: 2.5 };
+    for (let i = 0; i < 4; i++) burst(rand(100, 700), rand(60, 200), 12, L.pal.edge);
+  }
+  // speed eases toward the level's speed and creeps up a little within it
+  const prog = (dist / 10 - level.at) / (nextLevelAt(level) - level.at);
+  const target = level.speed + 25 * Math.min(1, prog);
+  speed += (target - speed) * Math.min(1, dt * 1.5);
+
+  const dx = speed * dt;
+  dist += dx;
+  for (const s of segs) s.x -= dx;
+  for (const s of spikes) s.x -= dx;
+  for (const b of blocks) b.x -= dx;
+  for (const s of saws) { s.x -= dx; s.spin += dt * 12; }
+  for (const c of coins) c.x -= dx;
+  for (const s of shots) s.x -= dx;
+  for (const q of trail) q.x -= dx;
+  segs = segs.filter(s => s.x + s.w > -50);
+  spikes = spikes.filter(s => s.x + s.w > -50);
+  blocks = blocks.filter(b => b.x + b.w > -50);
+  saws = saws.filter(s => s.x + s.r > -50);
+  coins = coins.filter(c => c.x > -30 && !c.taken);
+  while (segs[segs.length - 1].x < W + 300) genSeg();
+
+  // jump (buffered + coyote time)
+  p.coyote -= dt; p.buffer -= dt;
+  if (p.buffer > 0 && (p.onGround || p.coyote > 0)) {
+    p.vy = -JUMP; p.onGround = false; p.coyote = 0; p.buffer = 0; p.jumps = 1; p.cut = false;
+    burst(p.x + p.w / 2, p.y + p.h, 6, '#ffffff');
+  }
+
+  // physics
+  const prevBottom = p.y + p.h;
+  p.vy += G * dt;
+  p.y += p.vy * dt;
+  const over = segs.find(s => p.x + p.w > s.x + 3 && p.x < s.x + s.w - 3);
+  const bottom = p.y + p.h;
+
+  if (over && p.vy >= 0 && prevBottom <= GROUND + 1 && bottom >= GROUND) {
+    if (!p.onGround) {
+      burst(p.x + p.w / 2, GROUND, 6, '#c9c9ff');
+      p.rot = Math.round(p.rot / (Math.PI / 2)) * (Math.PI / 2);
+      if (save.weapon === 'w_stomp' && p.jumps >= 2) thunderStomp();
+    }
+    p.y = GROUND - p.h; p.vy = 0; p.onGround = true; p.jumps = 0;
+  } else {
+    if (p.onGround) { p.coyote = COYOTE; p.jumps = 1; }  // walked off a ledge
+    p.onGround = false;
+    if (over && bottom > GROUND + 2) {                   // slammed into a ledge wall
+      if (shieldLeft > 0) p.y = GROUND - p.h - 2;
+      if (rescue()) return;
+    }
+  }
+  if (!p.onGround) p.rot += 7 * dt;
+  if (bottom > GROUND + 60 && rescue()) return;
+
+  updateWeapons(dt);
+
+  // coins (with magnet)
+  const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+  const magnet = [0, 100, 170][save.upg.magnet];
+  for (const c of coins) {
+    const d = Math.hypot(c.x - cx, c.y - cy);
+    if (d < magnet && d > 1) { const step = Math.min(d, 700 * dt); c.x -= (c.x - cx) / d * step; c.y -= (c.y - cy) / d * step; }
+    if (d < 22) {
+      c.taken = true;
+      const value = (c.gem ? 5 : 1) * (save.upg.doubler ? 2 : 1);
+      runCoins += value;
+      burst(c.x, c.y, c.gem ? 12 : 5, c.gem ? '#d68bff' : '#ffd23f', 300);
+      if (c.gem || value > 1) popup(c.x, c.y - 10, '+' + value, c.gem ? '#d68bff' : '#ffd23f');
+    }
+  }
+
+  // trail
+  trail.push({ x: cx, y: cy });
+  if (trail.length > 16) trail.shift();
+  if (save.trail === 't_sparkle' && Math.random() < 0.6)
+    parts.push({ x: p.x + rand(0, p.w), y: p.y + rand(0, p.h), vx: rand(-80, -20), vy: rand(-30, 30), life: 0.5, max: 0.5, color: Math.random() < 0.5 ? '#fff' : '#ffe98a', s: rand(1.5, 3.5), g: 0 });
+  if (save.trail === 't_fire')
+    for (let i = 0; i < 2; i++)
+      parts.push({ x: p.x + rand(0, 8), y: p.y + rand(4, p.h), vx: rand(-200, -80), vy: rand(-120, -20), life: rand(0.25, 0.45), max: 0.45, color: ['#ff4500', '#ff8c00', '#ffd23f'][i + (Math.random() < 0.5 ? 0 : 1)], s: rand(3, 6), g: -300 });
+
+  // collisions
+  const box = { x: p.x + 3, y: p.y + 3, w: p.w - 6, h: p.h - 6 };
+  for (const s of spikes) if (hit(box, { x: s.x + 5, y: GROUND - s.h + 9, w: s.w - 10, h: s.h - 9 }) && hurt('spike', s)) return;
+  for (const b of blocks) if (hit(box, b) && hurt('bar', b)) return;
+  for (const s of saws) {
+    const sy = sawY(s), r = s.r - 3;
+    const nx = Math.max(box.x, Math.min(s.x, box.x + box.w)), ny = Math.max(box.y, Math.min(sy, box.y + box.h));
+    if ((nx - s.x) ** 2 + (ny - sy) ** 2 < r * r && hurt('saw', s)) return;
+  }
+}
+
+// ---------- render ----------
+function hills(offset, amp, base, color, freq) {
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 10) {
+    const wx = x + offset;
+    ctx.lineTo(x, base - amp * (Math.sin(wx * freq) * 0.6 + Math.sin(wx * freq * 2.3 + 1) * 0.4));
+  }
+  ctx.lineTo(W, H); ctx.fill();
+}
+
+function drawSaw(s, color) {
+  const sy = sawY(s);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(s.x, 0); ctx.lineTo(s.x, sy); ctx.stroke();
+  ctx.save(); ctx.translate(s.x, sy); ctx.rotate(s.spin);
+  ctx.fillStyle = color; ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2, rr = i % 2 ? s.r - 5 : s.r + 2;
+    ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.fill();
+  ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawCoin(x, y, gem, r = 8) {
+  if (gem) {
+    ctx.fillStyle = '#d68bff'; ctx.shadowColor = '#d68bff'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.moveTo(x, y - 10); ctx.lineTo(x + 8, y); ctx.lineTo(x, y + 10); ctx.lineTo(x - 8, y); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath(); ctx.moveTo(x, y - 10); ctx.lineTo(x + 3, y - 2); ctx.lineTo(x - 3, y - 2); ctx.fill();
+    return;
+  }
+  const sx = Math.abs(Math.cos(t * 4 + x * 0.02)) * 0.8 + 0.2;  // spinning
+  ctx.fillStyle = '#ffd23f'; ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.ellipse(x, y, r * sx, r, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.fillStyle = '#e0a800';
+  ctx.beginPath(); ctx.ellipse(x, y, r * sx * 0.55, r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+}
+
+function skinStyle() {
+  const s = byId(save.skin) || ITEMS.skins[0];
+  if (s.special === 'rainbow') { const c = `hsl(${(t * 200) % 360},90%,62%)`; return { fill: c, glow: c, eyes: '#0f0f1e', alpha: 1 }; }
+  if (s.special === 'ghost') return { fill: '#ffffff', glow: '#ffffff', eyes: '#0f0f1e', alpha: 0.45 + Math.sin(t * 3) * 0.1 };
+  if (s.special === 'lava') { const c = mixHex('#ff3c00', '#ffcc00', (Math.sin(t * 6) + 1) / 2); return { fill: c, glow: '#ff6a00', eyes: '#3a0a00', alpha: 1 }; }
+  return { fill: s.color, glow: s.glow || s.color, eyes: s.eyes || '#0f0f1e', alpha: 1 };
+}
+
+function draw() {
+  const pal = {};
+  for (const k in level.pal) pal[k] = mixHex(prevPal[k], level.pal[k], palBlend);
+
+  ctx.save();
+  if (shake > 0) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, pal.sky1); sky.addColorStop(1, pal.sky2);
+  ctx.fillStyle = sky; ctx.fillRect(-20, -20, W + 40, H + 40);
+
+  // stars
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  for (let i = 0; i < 40; i++) {
+    const sx = ((i * 137.5 - dist * 0.05) % W + W) % W, sy = (i * 61) % 200;
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+  hills(dist * 0.15, 40, 260, pal.hill1, 0.006);
+  hills(dist * 0.35, 30, 300, pal.hill2, 0.011);
+
+  // hanging bars
+  for (const b of blocks) {
+    ctx.fillStyle = '#2a2a3d'; ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.save(); ctx.beginPath(); ctx.rect(b.x, b.y + b.h - 14, b.w, 14); ctx.clip();
+    for (let x = b.x - 20; x < b.x + b.w + 20; x += 20) {
+      ctx.fillStyle = '#ffcc33'; ctx.beginPath();
+      ctx.moveTo(x, b.y + b.h); ctx.lineTo(x + 10, b.y + b.h); ctx.lineTo(x + 24, b.y + b.h - 14); ctx.lineTo(x + 14, b.y + b.h - 14); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ground
+  for (const s of segs) {
+    ctx.fillStyle = pal.ground; ctx.fillRect(s.x, GROUND, s.w, H - GROUND);
+    ctx.fillStyle = pal.edge; ctx.fillRect(s.x, GROUND, s.w, 5);
+  }
+
+  // spikes
+  ctx.fillStyle = pal.spike;
+  for (const s of spikes) {
+    ctx.beginPath();
+    for (let x = s.x; x < s.x + s.w - 1; x += 22) {
+      ctx.moveTo(x, GROUND); ctx.lineTo(x + 11, GROUND - s.h); ctx.lineTo(x + 22, GROUND);
+    }
+    ctx.fill();
+  }
+  for (const s of saws) drawSaw(s, pal.spike);
+  for (const c of coins) drawCoin(c.x, c.y, c.gem);
+
+  // rainbow trail
+  if (save.trail === 't_rainbow' && state === 'play' && trail.length > 1) {
+    ctx.lineCap = 'round';
+    for (let i = 1; i < trail.length; i++) {
+      ctx.strokeStyle = `hsla(${(i * 25 + t * 300) % 360},90%,60%,${i / trail.length})`;
+      ctx.lineWidth = 4 + (i / trail.length) * 12;
+      ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y); ctx.stroke();
+    }
+  }
+
+  // weapon effects
+  for (const s of shots) {
+    ctx.fillStyle = '#7dff6b'; ctx.shadowColor = '#7dff6b'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  for (const b of beams) {
+    ctx.globalAlpha = b.life / 0.2;
+    ctx.strokeStyle = '#ff3355'; ctx.lineWidth = 8; ctx.shadowColor = '#ff3355'; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+  for (const r of rings) {
+    ctx.globalAlpha = r.life / 0.45;
+    ctx.strokeStyle = '#ffe14d'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * 0.35, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // player
+  if (state !== 'dead' && !(invuln > 0 && Math.floor(t * 20) % 2)) {
+    const sk = skinStyle();
+    const pcx = p.x + p.w / 2, pcy = p.y + p.h / 2;
+    ctx.save();
+    ctx.globalAlpha = sk.alpha;
+    ctx.translate(pcx, pcy); ctx.rotate(p.rot);
+    ctx.shadowColor = sk.glow; ctx.shadowBlur = 16;
+    ctx.fillStyle = sk.fill; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    ctx.shadowBlur = 0; ctx.fillStyle = sk.eyes;
+    ctx.fillRect(2, -7, 5, 5); ctx.fillRect(-7, -7, 5, 5);
+    if (save.weapon === 'w_laser' && laserCd < 0.6) { ctx.fillStyle = '#ff3355'; ctx.fillRect(2, -7, 5, 5); ctx.fillRect(-7, -7, 5, 5); }
+    ctx.restore();
+    if (shieldLeft > 0) {
+      ctx.strokeStyle = `rgba(124,240,255,${0.5 + Math.sin(t * 5) * 0.2})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(pcx, pcy, 24, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(124,240,255,0.08)'; ctx.fill();
+    }
+    if (save.weapon === 'w_blades' && state === 'play') {
+      for (const b of blades) {
+        if (!b.alive) continue;
+        ctx.save(); ctx.translate(pcx + Math.cos(b.a) * 38, pcy + Math.sin(b.a) * 38); ctx.rotate(t * 20);
+        ctx.fillStyle = '#d8e0ff'; ctx.shadowColor = '#b8c4ff'; ctx.shadowBlur = 10;
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.lineTo(Math.cos(a) * 11, Math.sin(a) * 11); ctx.lineTo(Math.cos(a + 0.6) * 4, Math.sin(a + 0.6) * 4); }
+        ctx.fill(); ctx.restore();
+      }
+    }
+  }
+
+  for (const q of parts) {
+    ctx.globalAlpha = Math.max(0, q.life / q.max);
+    ctx.fillStyle = q.color; ctx.fillRect(q.x, q.y, q.s, q.s);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'center'; ctx.font = 'bold 16px system-ui, sans-serif';
+  for (const q of popups) { ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.color; ctx.fillText(q.text, q.x, q.y); }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // HUD
+  const meters = Math.floor(dist / 10);
+  if (state !== 'menu') {
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(meters + ' m', 20, 36);
+    ctx.font = '14px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillText('Level ' + (level.index + 1) + ' · ' + level.name, 20, 58);
+    // progress to next level
+    const prog = Math.min(1, (dist / 10 - level.at) / (nextLevelAt(level) - level.at));
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(20, 66, 160, 5);
+    ctx.fillStyle = pal.edge; ctx.fillRect(20, 66, 160 * prog, 5);
+    // equipment status
+    const status = [];
+    if (shieldLeft > 0) status.push('🛡️×' + shieldLeft);
+    if (save.weapon === 'w_pea') status.push('🔫×' + ammo);
+    if (save.weapon === 'w_laser') status.push('👁️ ' + (laserCd <= 0 ? 'READY' : laserCd.toFixed(1) + 's'));
+    if (save.weapon === 'w_stomp') status.push('⚡ double jump + land');
+    if (save.weapon === 'w_blades') status.push('🌀×' + blades.filter(b => b.alive).length);
+    ctx.font = '14px system-ui, sans-serif'; ctx.fillStyle = '#fff';
+    ctx.fillText(status.join('   '), 20, 92);
+  }
+  ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '16px system-ui, sans-serif';
+  ctx.fillText('Best: ' + best + ' m', W - 20, 30);
+  drawCoin(W - 28, 50, false, 7);
+  ctx.fillStyle = '#ffd23f'; ctx.font = 'bold 16px system-ui, sans-serif';
+  ctx.fillText(state === 'play' ? runCoins : save.coins, W - 42, 56);
+
+  // level banner
+  if (banner && state === 'play') {
+    const a = Math.min(1, banner.time / 0.5, (2.5 - banner.time) / 0.3 + 0.2);
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText(banner.title.toUpperCase(), W / 2, 140);
+    ctx.font = '20px system-ui, sans-serif'; ctx.fillStyle = pal.edge; ctx.fillText(banner.sub, W / 2, 172);
+    ctx.globalAlpha = 1;
+  }
+
+  if (state === 'menu' || state === 'dead') {
+    ctx.fillStyle = 'rgba(10,8,25,0.55)'; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.font = 'bold 44px system-ui, sans-serif';
+    ctx.fillText(state === 'menu' ? 'ONE BUTTON JUMPER' : meters + ' m', W / 2, 110);
+    ctx.font = '18px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    if (state === 'menu') {
+      ctx.fillText('Tap for a short hop, hold for a big jump', W / 2, 160);
+      ctx.fillText('Press again in the air to double jump', W / 2, 188);
+      ctx.fillText('Collect coins and spend them in the store', W / 2, 216);
+    } else {
+      ctx.fillText('Reached level ' + (level.index + 1) + ': ' + level.name, W / 2, 150);
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillText('+' + runCoins + ' coins collected   +' + lastBonus + ' distance bonus', W / 2, 180);
+      if (meters >= best && best > 0) { ctx.fillStyle = '#5ee6ff'; ctx.fillText('★ New best! ★', W / 2, 210); }
+    }
+    if (Math.sin(t * 5) > -0.3) {
+      ctx.fillStyle = '#5ee6ff'; ctx.font = 'bold 20px system-ui, sans-serif';
+      ctx.fillText('Press SPACE / click / tap to ' + (state === 'menu' ? 'start' : 'retry'), W / 2, 270);
+    }
+    if (save.headStarts > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '14px system-ui, sans-serif';
+      ctx.fillText('🚀 Head Start ready (' + save.headStarts + ')', W / 2, 390);
+    }
+  }
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  update(dt);
+  draw();
+  storeBtn.hidden = state === 'play' || !storeEl.hidden;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
