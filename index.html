@@ -11,23 +11,29 @@
   #wrap { position: relative; width: min(100vw, 200vh); aspect-ratio: 2 / 1; }
   canvas { display: block; width: 100%; height: 100%; border-radius: 6px; }
 
-  #storeBtn {
-    position: absolute; left: 50%; top: 82%; transform: translateX(-50%);
-    font: bold clamp(12px, 2vw, 18px) system-ui, sans-serif; padding: .5em 1.6em;
-    border: none; border-radius: 999px; background: #ffcc33; color: #1b1446; cursor: pointer;
-    box-shadow: 0 4px 0 #b8871a, 0 0 20px rgba(255, 204, 51, .4);
+  #menuBtns { position: absolute; left: 50%; top: 79%; transform: translateX(-50%); display: flex; gap: .8em; font-size: clamp(12px, 2vw, 18px); }
+  .menuBtn {
+    font: bold 1em system-ui, sans-serif; padding: .5em 1.4em; border: none; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    background: #ffcc33; color: #1b1446; box-shadow: 0 4px 0 #b8871a, 0 0 20px rgba(255, 204, 51, .35);
   }
-  #storeBtn:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 2px 0 #b8871a; }
+  .menuBtn.purple { background: #7f6bff; color: #fff; box-shadow: 0 4px 0 #4f3fcf, 0 0 20px rgba(127, 107, 255, .35); }
+  .menuBtn:active { transform: translateY(2px); box-shadow: none; }
+  .badge { background: #ff5dd8; color: #fff; border-radius: 999px; padding: 0 .45em; margin-left: .3em; font-size: .85em; }
 
-  #store {
+  #soundBtns { position: absolute; left: 1.2%; bottom: 2.5%; display: flex; gap: .4em; }
+  #soundBtns button { font-size: clamp(12px, 1.8vw, 18px); background: rgba(0, 0, 0, .35); color: #fff; border: none; border-radius: 8px; padding: .2em .45em; cursor: pointer; }
+  #soundBtns button.off { opacity: .35; }
+
+  .panel {
     position: absolute; inset: 0; box-sizing: border-box; padding: 2% 2.5%;
     background: rgba(14, 11, 34, .97); color: #fff; border-radius: 6px;
     display: flex; flex-direction: column; font-size: clamp(10px, 1.5vw, 15px);
   }
-  #store .top { display: flex; align-items: center; gap: 1em; }
-  #store h2 { margin: 0; font-size: 1.8em; letter-spacing: .05em; }
+  .panel .top { display: flex; align-items: center; gap: 1em; }
+  .panel h2 { margin: 0; font-size: 1.8em; letter-spacing: .05em; }
+  .panel .close { margin-left: auto; background: #2c2552; color: #fff; border: none; border-radius: 8px; font-size: 1.2em; padding: .3em .7em; cursor: pointer; }
   #storeCoins { margin-left: auto; font-weight: bold; font-size: 1.3em; color: #ffd23f; }
-  #closeStore { background: #2c2552; color: #fff; border: none; border-radius: 8px; font-size: 1.2em; padding: .3em .7em; cursor: pointer; }
+  #storeCoins + .close { margin-left: 0; }
   #tabs { display: flex; gap: .5em; margin: .8em 0 .2em; flex-wrap: wrap; }
   #tabs button { background: #221c45; color: #cfc8ff; border: none; border-radius: 999px; padding: .45em 1.1em; font: inherit; cursor: pointer; }
   #tabs button.on { background: #7f6bff; color: #fff; }
@@ -45,26 +51,52 @@
   .card button { border: none; border-radius: 8px; padding: .45em; font: bold 1em system-ui, sans-serif; cursor: pointer; background: #ffcc33; color: #1b1446; }
   .card button:disabled { background: #39335e; color: #8f88b8; cursor: default; }
   .card.eq button:disabled { background: #5ee6ff33; color: #5ee6ff; }
+
+  .panel .sub { opacity: .7; margin-top: .4em; }
+  #missionList { flex: 1; overflow-y: auto; padding-top: .4em; }
+  .mission { background: #1d1840; border-radius: 12px; padding: .9em 1.1em; display: flex; gap: 1em; align-items: center; margin-top: .7em; }
+  .mission .txt { flex: 1; }
+  .mission .hint { opacity: .6; font-size: .85em; }
+  .mission .bar { height: .5em; background: #2c2552; border-radius: 99px; overflow: hidden; margin-top: .45em; }
+  .mission .bar div { height: 100%; background: #7dff6b; border-radius: 99px; }
+  .mission .reward { color: #ffd23f; font-weight: bold; white-space: nowrap; font-size: 1.15em; }
+  .mission .icon { font-size: 1.8em; }
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="c"></canvas>
-  <button id="storeBtn">🛒 Store</button>
-  <div id="store" hidden>
+  <div id="menuBtns">
+    <button class="menuBtn" id="storeBtn">🛒 Store</button>
+    <button class="menuBtn purple" id="missionsBtn">📋 Missions</button>
+  </div>
+  <div id="soundBtns">
+    <button id="musicBtn" title="Music (M)">🎵</button>
+    <button id="sfxBtn" title="Sound effects (N)">🔊</button>
+  </div>
+  <div id="store" class="panel" hidden>
     <div class="top">
       <h2>STORE</h2>
       <div id="storeCoins"></div>
-      <button id="closeStore" title="Close (Esc)">✕</button>
+      <button class="close" title="Close (Esc)">✕</button>
     </div>
     <div id="tabs"></div>
     <div id="grid"></div>
   </div>
+  <div id="missions" class="panel" hidden>
+    <div class="top">
+      <h2>MISSIONS</h2>
+      <button class="close" title="Close (Esc)">✕</button>
+    </div>
+    <div class="sub">Complete missions to earn coins. Finished missions are replaced with harder ones after each run.</div>
+    <div id="missionList"></div>
+  </div>
 </div>
 <script>
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-const storeEl = document.getElementById('store'), storeBtn = document.getElementById('storeBtn');
-const W = 800, H = 400, GROUND = 320, BAR_GAP = 130;
+const storeEl = document.getElementById('store'), missionsEl = document.getElementById('missions');
+const menuBtns = document.getElementById('menuBtns');
+const W = 800, H = 400, GROUND = 320, CEIL = 80, BAR_GAP = 130;
 const G = 2400, JUMP = 820, DJUMP = 720, CUT = 0.5;
 const COYOTE = 0.08, BUFFER = 0.12;
 
@@ -77,24 +109,28 @@ resize();
 window.addEventListener('resize', resize);
 
 const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 // ---------- levels ----------
 // at: distance in meters where the level starts. Each level adds or mixes hazards.
+// flip: chance that a stretch of track is an upside-down gravity zone.
 const LEVELS = [
-  { name: 'Moonlit Meadow', at: 0,    speed: 360, gapMin: 60, gapMax: 110, spikeMax: 1, bar: 0,    saw: 0,    segMin: 380, segMax: 650,
+  { name: 'Moonlit Meadow', at: 0,    speed: 360, gapMin: 60, gapMax: 110, spikeMax: 1, bar: 0,    saw: 0,    flip: 0,    segMin: 380, segMax: 650,
     pal: { sky1: '#1b1446', sky2: '#4a2a6b', hill1: '#3a2460', hill2: '#2c1c4d', ground: '#20183a', edge: '#7f6bff', spike: '#ff5d73' } },
-  { name: 'Twin Thorns',    at: 200,  speed: 420, gapMin: 70, gapMax: 150, spikeMax: 2, bar: 0,    saw: 0,    segMin: 340, segMax: 600,
+  { name: 'Twin Thorns',    at: 200,  speed: 420, gapMin: 70, gapMax: 150, spikeMax: 2, bar: 0,    saw: 0,    flip: 0,    segMin: 340, segMax: 600,
     pal: { sky1: '#0f2a3a', sky2: '#1f5a5e', hill1: '#1b4a50', hill2: '#133a40', ground: '#0d2228', edge: '#4fe3c1', spike: '#ff6b6b' } },
-  { name: 'Low Ceiling',    at: 450,  speed: 450, gapMin: 70, gapMax: 160, spikeMax: 2, bar: 0.45, saw: 0,    segMin: 340, segMax: 600,
+  { name: 'Low Ceiling',    at: 450,  speed: 450, gapMin: 70, gapMax: 160, spikeMax: 2, bar: 0.45, saw: 0,    flip: 0,    segMin: 340, segMax: 600,
     pal: { sky1: '#3a1530', sky2: '#c2553a', hill1: '#7a2f3a', hill2: '#521f30', ground: '#2a1020', edge: '#ffb347', spike: '#ff2e63' } },
-  { name: 'Sawmill',        at: 750,  speed: 480, gapMin: 70, gapMax: 170, spikeMax: 2, bar: 0.2,  saw: 0.5,  segMin: 340, segMax: 600,
+  { name: 'Sawmill',        at: 750,  speed: 480, gapMin: 70, gapMax: 170, spikeMax: 2, bar: 0.2,  saw: 0.5,  flip: 0,    segMin: 340, segMax: 600,
     pal: { sky1: '#1e1e24', sky2: '#4a3b2f', hill1: '#3b3028', hill2: '#2a231e', ground: '#18140f', edge: '#ff8c42', spike: '#e63946' } },
-  { name: 'Island Hopping', at: 1100, speed: 500, gapMin: 80, gapMax: 190, spikeMax: 1, bar: 0,    saw: 0.15, segMin: 150, segMax: 300,
+  { name: 'Upside Down',    at: 1100, speed: 490, gapMin: 70, gapMax: 160, spikeMax: 2, bar: 0.15, saw: 0.2,  flip: 0.55, segMin: 320, segMax: 560,
+    pal: { sky1: '#16062b', sky2: '#3d1a6e', hill1: '#2d1450', hill2: '#200e3a', ground: '#120626', edge: '#c86bff', spike: '#7dff6b' } },
+  { name: 'Island Hopping', at: 1450, speed: 510, gapMin: 80, gapMax: 190, spikeMax: 1, bar: 0,    saw: 0.15, flip: 0.1,  segMin: 150, segMax: 300,
     pal: { sky1: '#0a1f44', sky2: '#2b6cb0', hill1: '#1d4e89', hill2: '#143a6b', ground: '#0b1a33', edge: '#7cf0ff', spike: '#ff5d73' } },
-  { name: 'Storm Peak',     at: 1500, speed: 540, gapMin: 80, gapMax: 200, spikeMax: 3, bar: 0.35, saw: 0.35, segMin: 260, segMax: 520,
+  { name: 'Storm Peak',     at: 1850, speed: 545, gapMin: 80, gapMax: 200, spikeMax: 3, bar: 0.35, saw: 0.35, flip: 0.2,  segMin: 260, segMax: 520,
     pal: { sky1: '#111318', sky2: '#3c4452', hill1: '#2b313c', hill2: '#1e232c', ground: '#0d0f13', edge: '#b8c4ff', spike: '#ff4d6d' } },
-  { name: 'Inferno',        at: 2000, speed: 580, gapMin: 90, gapMax: 220, spikeMax: 3, bar: 0.4,  saw: 0.45, segMin: 220, segMax: 460,
+  { name: 'Inferno',        at: 2350, speed: 580, gapMin: 90, gapMax: 220, spikeMax: 3, bar: 0.4,  saw: 0.45, flip: 0.25, segMin: 220, segMax: 460,
     pal: { sky1: '#2a0505', sky2: '#8a1c0c', hill1: '#5a1208', hill2: '#3d0c06', ground: '#1a0402', edge: '#ffcf3f', spike: '#ffffff' } },
 ];
 const ENDLESS_EVERY = 500;
@@ -126,6 +162,14 @@ function mixHex(a, b, k) {
   return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }
 
+// ---------- power-ups ----------
+const POWERS = {
+  rocket: { icon: '🚀', name: 'ROCKET',    color: '#ff8c42', time: 4, desc: 'Fly over everything' },
+  slow:   { icon: '⏳', name: 'SLOW-MO',   color: '#7cf0ff', time: 5, desc: 'Time slows down' },
+  giant:  { icon: '💪', name: 'GIANT',     color: '#ff5dd8', time: 5, desc: 'Smash through hazards' },
+  coins:  { icon: '🪙', name: 'COIN RAIN', color: '#ffd23f', time: 6, desc: 'Hazards turn into coins' },
+};
+
 // ---------- store items ----------
 const ITEMS = {
   skins: [
@@ -148,7 +192,7 @@ const ITEMS = {
     { id: 'w_none',   name: 'Bare Hands',    price: 0,   icon: '🚫', desc: 'Dodge everything yourself.' },
     { id: 'w_pea',    name: 'Pea Blaster',   price: 150, icon: '🔫', desc: '3 shots per run. Auto-fires at the next hazard.' },
     { id: 'w_laser',  name: 'Laser Eyes',    price: 350, icon: '👁️', desc: 'Vaporizes a hazard ahead every 4 seconds.' },
-    { id: 'w_stomp',  name: 'Thunder Stomp', price: 500, icon: '⚡', desc: 'Land after a double jump to blast ground hazards ahead.' },
+    { id: 'w_stomp',  name: 'Thunder Stomp', price: 500, icon: '⚡', desc: 'Land after a double jump to blast hazards ahead.' },
     { id: 'w_blades', name: 'Orbit Blades',  price: 800, icon: '🌀', desc: '2 spinning blades smash what they touch. Regrow after 5s.' },
   ],
   upgrades: [
@@ -164,11 +208,183 @@ const byId = id => Object.values(ITEMS).flat().find(i => i.id === id);
 
 const SAVE_KEY = 'oneButtonJumperSave';
 const save = Object.assign(
-  { coins: 0, owned: { cyan: 1, t_none: 1, w_none: 1 }, skin: 'cyan', trail: 't_none', weapon: 'w_none', upg: {}, headStarts: 0 },
+  { coins: 0, owned: { cyan: 1, t_none: 1, w_none: 1 }, skin: 'cyan', trail: 't_none', weapon: 'w_none', upg: {}, headStarts: 0,
+    music: true, sfx: true, missions: [], mtier: {} },
   JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'));
 save.upg = Object.assign({ shield: 0, magnet: 0, triple: 0, doubler: 0 }, save.upg);
 const persist = () => localStorage.setItem(SAVE_KEY, JSON.stringify(save));
 
+// ---------- sound (all synthesized with Web Audio, no files) ----------
+const Sound = (() => {
+  let ac = null, musicGain, sfxGain, noiseBuf, nextTime = 0, step = 0, playing = false;
+  const mf = m => 440 * Math.pow(2, (m - 69) / 12);
+
+  function init() {
+    if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ac = new AC();
+    const master = ac.createGain(); master.gain.value = 0.7; master.connect(ac.destination);
+    musicGain = ac.createGain(); musicGain.connect(master);
+    sfxGain = ac.createGain(); sfxGain.connect(master);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    volumes();
+  }
+  function volumes() {
+    if (!ac) return;
+    musicGain.gain.value = save.music ? 0.45 : 0;
+    sfxGain.gain.value = save.sfx ? 0.8 : 0;
+  }
+  function tone(freq, dur, o = {}) {
+    if (!ac) return;
+    const t0 = o.at ?? ac.currentTime + (o.delay || 0);
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = o.type || 'square';
+    osc.frequency.setValueAtTime(freq, t0);
+    if (o.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq * o.slide), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(o.vol ?? 0.15, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(o.out || sfxGain);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+  }
+  function noise(dur, o = {}) {
+    if (!ac) return;
+    const t0 = o.at ?? ac.currentTime + (o.delay || 0);
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = noiseBuf;
+    f.type = o.filter || 'lowpass'; f.frequency.value = o.freq || 1000;
+    g.gain.setValueAtTime(o.vol ?? 0.2, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(o.out || sfxGain);
+    src.start(t0, Math.random() * 0.5); src.stop(t0 + dur + 0.05);
+  }
+  const arp = (notes, gap, o) => notes.forEach((n, i) => tone(n, o.dur || 0.12, { ...o, delay: i * gap }));
+
+  // music: a little chiptune loop. Each level shifts the key and speeds up the tempo.
+  const PROG = [[0, 3], [-4, 4], [3, 4], [-2, 4]];   // i – VI – III – VII
+  const KEY_SHIFT = [0, 3, -2, 5, 2, -4, 7, 1];
+  function musicStep(s, at, sd) {
+    const out = musicGain, i = s % 16, [off, third] = PROG[Math.floor(s / 16) % 4];
+    const root = 57 + KEY_SHIFT[level.index % KEY_SHIFT.length] + off;
+    const chord = [0, third, 7, 12];
+    if (i % 8 === 0) tone(150, 0.2, { type: 'sine', slide: 0.3, vol: 0.55, at, out });                    // kick
+    if (i === 4 || i === 12) noise(0.14, { filter: 'bandpass', freq: 1800, vol: 0.18, at, out });         // snare
+    if (i % 2 === 1) noise(0.03, { filter: 'highpass', freq: 7000, vol: 0.06, at, out });                 // hi-hat
+    if (i % 2 === 0) tone(mf(root - 24 + (i % 8 === 6 ? 12 : 0)), sd * 1.8, { type: 'triangle', vol: 0.3, at, out }); // bass
+    const k = p.flip ? 3 - (i % 4) : i % 4;                                                               // arp runs backwards upside down
+    tone(mf(root + 12 + chord[k]), sd * 0.9, { type: 'square', vol: 0.04, at, out });
+    if (level.index >= 2 && [0, 3, 6, 10].includes(i))                                                    // lead from level 3
+      tone(mf(root + 24 + chord[(i >> 2) % 4]), sd * 2.5, { type: 'triangle', vol: 0.07, at, out });
+  }
+  function tick() {
+    if (!ac || !playing) return;
+    const sd = 60 / (Math.min(172, 112 + level.index * 7) * timeScale) / 4;
+    if (nextTime < ac.currentTime) nextTime = ac.currentTime + 0.02;   // fell behind (tab was hidden)
+    while (nextTime < ac.currentTime + 0.15) { musicStep(step++, nextTime, sd); nextTime += sd; }
+  }
+
+  return {
+    init, volumes, tick,
+    startMusic() { if (ac) { playing = true; step = 0; nextTime = ac.currentTime + 0.05; } },
+    stopMusic() { playing = false; },
+    jump:    () => tone(320, 0.14, { slide: 2.2, vol: 0.12 }),
+    djump:   () => { tone(520, 0.12, { slide: 1.8, vol: 0.1 }); tone(780, 0.1, { delay: 0.05, slide: 1.5, vol: 0.08 }); },
+    land:    () => noise(0.06, { freq: 500, vol: 0.12 }),
+    coin:    () => { tone(988, 0.08, { vol: 0.08 }); tone(1319, 0.15, { delay: 0.07, vol: 0.08 }); },
+    gem:     () => arp([880, 1109, 1319, 1760], 0.06, { type: 'triangle', vol: 0.15 }),
+    smash:   () => { noise(0.2, { freq: 1400, vol: 0.35 }); tone(220, 0.18, { type: 'sawtooth', slide: 0.3, vol: 0.1 }); },
+    die:     () => { tone(440, 0.6, { type: 'sawtooth', slide: 0.15, vol: 0.18 }); noise(0.5, { freq: 700, vol: 0.3 }); },
+    level:   () => arp([523, 659, 784, 1047], 0.09, { type: 'triangle', vol: 0.18, dur: 0.22 }),
+    shield:  () => { tone(700, 0.35, { type: 'sine', slide: 0.35, vol: 0.25 }); noise(0.25, { filter: 'highpass', freq: 3000, vol: 0.12 }); },
+    laser:   () => tone(1600, 0.28, { type: 'sawtooth', slide: 0.12, vol: 0.1 }),
+    shoot:   () => tone(900, 0.09, { slide: 0.45, vol: 0.08 }),
+    stomp:   () => { tone(110, 0.4, { type: 'sine', slide: 0.35, vol: 0.5 }); noise(0.35, { freq: 500, vol: 0.35 }); },
+    power:   () => arp([392, 523, 659, 784, 1047], 0.05, { vol: 0.08, dur: 0.1 }),
+    mission: () => arp([784, 988, 1175, 1568], 0.1, { type: 'triangle', vol: 0.18, dur: 0.3 }),
+    flip:    () => { tone(250, 0.4, { type: 'sine', slide: 3.5, vol: 0.2 }); tone(1000, 0.4, { type: 'triangle', slide: 0.28, vol: 0.08 }); },
+    buy:     () => { tone(1319, 0.08, { vol: 0.08 }); tone(1760, 0.2, { delay: 0.08, vol: 0.08 }); },
+  };
+})();
+
+const musicBtn = document.getElementById('musicBtn'), sfxBtn = document.getElementById('sfxBtn');
+function updateSoundBtns() { musicBtn.classList.toggle('off', !save.music); sfxBtn.classList.toggle('off', !save.sfx); }
+function toggleMusic() { save.music = !save.music; Sound.init(); Sound.volumes(); updateSoundBtns(); persist(); }
+function toggleSfx() { save.sfx = !save.sfx; Sound.init(); Sound.volumes(); updateSoundBtns(); persist(); }
+musicBtn.onclick = () => { musicBtn.blur(); toggleMusic(); };
+sfxBtn.onclick = () => { sfxBtn.blur(); toggleSfx(); };
+updateSoundBtns();
+
+// ---------- missions ----------
+// run: missions that must be done within a single run (progress = best run so far)
+const MISSIONS = {
+  coins_run: { icon: '🪙', text: n => `Collect ${n} coins in one run`,          targets: [25, 50, 80, 120, 170],       run: () => runCoins },
+  dist_run:  { icon: '🏃', text: n => `Run ${n} m in one run`,                   targets: [250, 500, 800, 1200, 1700, 2300], run: () => Math.floor(dist / 10) },
+  dj_run:    { icon: '🦘', text: n => `Double jump ${n} times in one run`,       targets: [5, 12, 25, 40],              run: () => run.dj },
+  clean_run: { icon: '✨', text: n => `Reach Level ${n} without taking a hit`,   targets: [2, 3, 4, 5, 6, 7],           run: () => run.hits ? 0 : level.index + 1 },
+  jumps:     { icon: '⬆️', text: n => `Jump ${n} times`,                         targets: [40, 120, 300, 600] },
+  smash:     { icon: '💥', text: n => `Smash ${n} hazards with weapons or power-ups`, targets: [5, 15, 40, 80] },
+  flips:     { icon: '🔄', text: n => `Pass through ${n} gravity portals`,       targets: [2, 6, 14, 30] },
+  powerups:  { icon: '⚡', text: n => `Grab ${n} power-ups`,                     targets: [2, 6, 12, 25] },
+  gems:      { icon: '💎', text: n => `Collect ${n} gems`,                       targets: [1, 3, 6, 12] },
+};
+function newMission(exclude) {
+  const type = pick(Object.keys(MISSIONS).filter(k => !exclude.includes(k)));
+  const tier = save.mtier[type] || 0, ts = MISSIONS[type].targets;
+  const target = tier < ts.length ? ts[tier] : Math.round(ts[ts.length - 1] * (1 + 0.5 * (tier - ts.length + 1)));
+  return { type, target, reward: 25 + 15 * tier, progress: 0, done: false, isNew: true };
+}
+function fillMissions() {
+  save.missions = save.missions.filter(m => MISSIONS[m.type]);
+  while (save.missions.length < 3) save.missions.push(newMission(save.missions.map(m => m.type)));
+}
+fillMissions(); persist();
+
+function track(type, n = 1) {
+  for (const m of save.missions) if (!m.done && m.type === type) m.progress += n;
+}
+function checkMissions() {
+  for (const m of save.missions) {
+    if (m.done) continue;
+    const def = MISSIONS[m.type];
+    if (def.run) m.progress = Math.max(m.progress, def.run());
+    if (m.progress >= m.target) {
+      m.done = true;
+      save.coins += m.reward; run.completed++; run.reward += m.reward;
+      toast = { text: '✔ ' + def.text(m.target), reward: m.reward, time: 3.2 };
+      Sound.mission(); persist();
+    }
+  }
+}
+// after a run, finished missions get replaced by harder ones
+function rotateMissions() {
+  save.missions.forEach((m, i) => {
+    if (!m.done) return;
+    save.mtier[m.type] = (save.mtier[m.type] || 0) + 1;
+    save.missions[i] = newMission(save.missions.map(x => x.type));
+  });
+}
+function renderMissions() {
+  const list = document.getElementById('missionList');
+  list.innerHTML = '';
+  for (const m of save.missions) {
+    const def = MISSIONS[m.type], prog = Math.min(1, m.progress / m.target);
+    const row = document.createElement('div');
+    row.className = 'mission';
+    row.innerHTML = `<div class="icon">${def.icon}</div>
+      <div class="txt"><div>${def.text(m.target)}${m.isNew ? '<span class="badge">NEW</span>' : ''}</div>
+        <div class="hint">${def.run ? 'Best so far' : 'Progress'}: ${Math.min(m.progress, m.target)} / ${m.target}</div>
+        <div class="bar"><div style="width:${prog * 100}%"></div></div></div>
+      <div class="reward">+${m.reward} 🪙</div>`;
+    list.appendChild(row);
+    m.isNew = false;
+  }
+  persist();
+}
+
+// ---------- store ----------
 function skinSwatch(it) {
   if (it.special === 'rainbow') return 'background:linear-gradient(135deg,#ff5d73,#ffd23f,#7dff6b,#5ee6ff,#b06bff)';
   if (it.special === 'lava') return 'background:linear-gradient(135deg,#ff4500,#ffcc00);box-shadow:0 0 14px #ff6a00';
@@ -221,63 +437,77 @@ function renderStore() {
       (extra ? `<div class="extra">${extra}</div>` : '');
     const b = document.createElement('button');
     b.textContent = label; b.disabled = !action;
-    if (action) b.onclick = () => { action(); persist(); renderStore(); };
+    if (action) b.onclick = () => { Sound.init(); label.startsWith('Equip') ? Sound.coin() : Sound.buy(); action(); persist(); renderStore(); };
     card.appendChild(b);
     gridEl.appendChild(card);
   }
 }
-function openStore() { if (state !== 'play') { storeEl.hidden = false; renderStore(); } }
-function closeStore() { storeEl.hidden = true; }
-storeBtn.onclick = () => { storeBtn.blur(); openStore(); };
-document.getElementById('closeStore').onclick = e => { e.currentTarget.blur(); closeStore(); };
+const panelOpen = () => !storeEl.hidden || !missionsEl.hidden;
+function openPanel(el, render) { if (state !== 'play' && !panelOpen()) { el.hidden = false; render(); } }
+function closePanels() { storeEl.hidden = true; missionsEl.hidden = true; }
+const storeBtn = document.getElementById('storeBtn'), missionsBtn = document.getElementById('missionsBtn');
+storeBtn.onclick = () => { storeBtn.blur(); openPanel(storeEl, renderStore); };
+missionsBtn.onclick = () => { missionsBtn.blur(); openPanel(missionsEl, renderMissions); };
+document.querySelectorAll('.panel .close').forEach(b => b.onclick = () => { b.blur(); closePanels(); });
 
 // ---------- state ----------
-let state = 'menu', segs, spikes, blocks, saws, coins, parts, popups, shots, beams, rings, trail;
-let speed, dist, startDist, shake = 0, deadAt = 0, t = 0;
-let level, prevPal, palBlend, banner;
-let runCoins, lastBonus, shieldLeft, invuln, ammo, laserCd, blades;
+let state = 'menu', segs, spikes, blocks, saws, coins, ceils, cspikes, portals, pups;
+let parts, popups, shots, beams, rings, trail;
+let speed, dist, startDist, genX, shake = 0, deadAt = 0, t = 0, timeScale = 1;
+let level, prevPal, palBlend, banner, toast = null;
+let runCoins, lastBonus, shieldLeft, invuln, ammo, laserCd, blades, power, run;
 let best = +localStorage.getItem('oneButtonJumperBest') || 0;
-const p = { x: 150, y: 0, w: 28, h: 28, vy: 0, onGround: true, jumps: 0, coyote: 0, buffer: 0, rot: 0, cut: false };
+const p = { x: 150, y: 0, w: 28, h: 28, vy: 0, onGround: true, jumps: 0, coyote: 0, buffer: 0, rot: 0, cut: false, flip: false };
 const maxJumps = () => 2 + save.upg.triple;
 
 function reset(startMeters = 0) {
-  segs = [{ x: -100, w: 900 }];
-  spikes = []; blocks = []; saws = []; coins = []; parts = []; popups = []; shots = []; beams = []; rings = []; trail = [];
+  segs = [{ x: -100, w: 900 }]; genX = 800;
+  spikes = []; blocks = []; saws = []; coins = []; ceils = []; cspikes = []; portals = []; pups = [];
+  parts = []; popups = []; shots = []; beams = []; rings = []; trail = [];
   dist = startDist = startMeters * 10;
   level = levelAt(startMeters); prevPal = level.pal; palBlend = 1;
   speed = level.speed;
   banner = { title: 'Level ' + (level.index + 1), sub: level.name, time: 2.2 };
-  runCoins = 0; shieldLeft = save.upg.shield; invuln = 0;
+  runCoins = 0; shieldLeft = save.upg.shield; invuln = 0; power = null; toast = null;
+  run = { dj: 0, hits: 0, completed: 0, reward: 0 };
   ammo = 3; laserCd = 1.5;
   blades = [0, Math.PI].map(a => ({ a, alive: true, regen: 0 }));
-  Object.assign(p, { y: GROUND - p.h, vy: 0, onGround: true, jumps: 0, coyote: 0, buffer: 0, rot: 0, cut: false });
+  Object.assign(p, { y: GROUND - 28, w: 28, h: 28, vy: 0, onGround: true, jumps: 0, coyote: 0, buffer: 0, rot: 0, cut: false, flip: false });
 }
 function startRun() {
+  Sound.init();
   if (save.headStarts > 0) {
     save.headStarts--; persist();
     reset(LEVELS[2].at);
     banner = { title: '🚀 Head Start!', sub: 'Level 3 · ' + level.name, time: 2.5 };
   } else reset();
   state = 'play';
+  Sound.startMusic();
 }
 reset();
 
 // ---------- level generation ----------
 function addCoin(x, y) { coins.push({ x, y, gem: Math.random() < 0.04 }); }
+function addPowerUp(x, y) { pups.push({ x, y, type: pick(Object.keys(POWERS)) }); }
 
-function genSeg() {
-  const last = segs[segs.length - 1];
-  const start = last.x + last.w;
-  // which level will this ground belong to when the player reaches it?
+function genNext() {
+  const start = genX;
+  // which level will this stretch belong to when the player reaches it?
   const L = levelAt((dist + (start - p.x)) / 10);
+  if (L.flip && Math.random() < L.flip && !genNext.lastFlip) { genNext.lastFlip = true; return genFlipZone(L, start); }
+  genNext.lastFlip = false;
   const g = rand(L.gapMin, Math.min(L.speed * 0.45, L.gapMax));
   const seg = { x: start + g, w: rand(L.segMin, L.segMax) };
   segs.push(seg);
+  genX = seg.x + seg.w;
   // coin arc over the gap
   if (Math.random() < 0.45) [[0.25, 70], [0.5, 95], [0.75, 70]].forEach(([k, h]) => addCoin(start + g * k, GROUND - h));
+  if (seg.w > 220 && Math.random() < 0.13) addPowerUp(seg.x + 60, GROUND - 60);
+  groundHazards(L, seg, seg.x + rand(110, 180));
+}
 
-  // hazards on the segment, spaced so they're always clearable
-  let x = seg.x + rand(110, 180);
+// hazards on a ground segment, spaced so they're always clearable
+function groundHazards(L, seg, x) {
   const minSpace = L.speed * 0.75;
   while (x < seg.x + seg.w - 90) {
     if (Math.random() < L.saw) {
@@ -300,26 +530,69 @@ function genSeg() {
     x += w + rand(minSpace, minSpace * 2.2);
   }
 }
+
+// An upside-down stretch: a portal flips gravity, you run along the ceiling,
+// then an exit portal drops you back onto the ground.
+function genFlipZone(L, start) {
+  portals.push({ x: start - 20, flip: true });
+  const end = start + rand(1300, 2000);
+  const minSpace = L.speed * 0.75;
+  let cx = start - 160, first = true;
+  while (cx < end) {
+    const piece = { x: cx, w: first ? rand(650, 800) : rand(260, 480) };
+    ceils.push(piece);
+    const isLast = piece.x + piece.w >= end;
+    if (first && Math.random() < 0.35) addPowerUp(piece.x + 420, CEIL + 60);
+    let hx = piece.x + (first ? 520 : rand(110, 160));
+    const limit = piece.x + piece.w - (isLast ? 240 : 90);
+    while (hx < limit) {
+      const w = (1 + Math.floor(Math.random() * Math.min(2, L.spikeMax))) * 22;
+      if (hx + w > limit + 20) break;
+      cspikes.push({ x: hx, w, h: 26 });
+      if (Math.random() < 0.5) [[-28, 55], [0, 78], [28, 55]].forEach(([dx, h]) => addCoin(hx + w / 2 + dx, CEIL + h));
+      hx += w + rand(minSpace, minSpace * 2);
+    }
+    cx = piece.x + piece.w;
+    first = false;
+    if (cx < end) {
+      const g = rand(L.gapMin, Math.min(L.speed * 0.45, L.gapMax * 0.8));
+      if (Math.random() < 0.45) [[0.25, 70], [0.5, 95], [0.75, 70]].forEach(([k, h]) => addCoin(cx + g * k, CEIL + h));
+      cx += g;
+    }
+  }
+  portals.push({ x: cx - 120, flip: false });
+  // ground resumes under the exit portal so you land safely
+  const seg = { x: cx - 260, w: rand(550, 750) };
+  segs.push(seg);
+  groundHazards(L, seg, cx + 260);
+  genX = seg.x + seg.w;
+}
 const sawY = s => GROUND - 70 + Math.sin(t * 2.2 + s.phase) * 45;
 
 // ---------- input ----------
 function press() {
-  if (!storeEl.hidden) return;
+  Sound.init();
+  if (panelOpen()) return;
   if (state === 'menu') startRun();
   else if (state === 'dead') { if (performance.now() - deadAt > 450) startRun(); }
+  else if (power && power.type === 'rocket') return;
   else if (p.onGround || p.coyote > 0) p.buffer = BUFFER;
   else if (p.jumps < maxJumps()) {
-    p.vy = -DJUMP; p.jumps++; p.cut = false;
-    burst(p.x + p.w / 2, p.y + p.h, 10, '#9be7ff');
+    p.vy = -DJUMP * (p.flip ? -1 : 1); p.jumps++; p.cut = false;
+    run.dj++; track('jumps');
+    Sound.djump();
+    burst(p.x + p.w / 2, p.flip ? p.y : p.y + p.h, 10, '#9be7ff');
   } else p.buffer = BUFFER;
 }
 function release() {
-  if (state === 'play' && p.vy < 0 && !p.cut) { p.vy *= CUT; p.cut = true; }
+  if (state === 'play' && p.vy * (p.flip ? -1 : 1) < 0 && !p.cut) { p.vy *= CUT; p.cut = true; }
 }
 const KEYS = ['Space', 'ArrowUp', 'KeyW', 'Enter'];
 addEventListener('keydown', e => {
-  if (e.code === 'Escape') return closeStore();
-  if (e.code === 'KeyS' && storeEl.hidden) return openStore();
+  if (e.code === 'Escape') return closePanels();
+  if (e.code === 'KeyS' && !e.repeat) return openPanel(storeEl, renderStore);
+  if (e.code === 'KeyM' && !e.repeat) return toggleMusic();
+  if (e.code === 'KeyN' && !e.repeat) return toggleSfx();
   if (KEYS.includes(e.code)) { e.preventDefault(); if (!e.repeat) press(); }
 });
 addEventListener('keyup', e => { if (KEYS.includes(e.code)) { e.preventDefault(); release(); } });
@@ -337,47 +610,51 @@ function popup(x, y, text, color = '#fff') { popups.push({ x, y, text, color, li
 // ---------- hazards & weapons ----------
 function hazardCenter(kind, o) {
   if (kind === 'spike') return [o.x + o.w / 2, GROUND - 13];
+  if (kind === 'cspike') return [o.x + o.w / 2, CEIL + 13];
   if (kind === 'saw') return [o.x, sawY(o)];
   return [o.x + o.w / 2, o.h - 12];
+}
+function removeHazard(kind, o) {
+  if (kind === 'spike') spikes = spikes.filter(s => s !== o);
+  else if (kind === 'cspike') cspikes = cspikes.filter(s => s !== o);
+  else if (kind === 'saw') saws = saws.filter(s => s !== o);
+  else blocks = blocks.filter(b => b !== o);
 }
 function destroy(kind, o) {
   if (o.dead) return;
   o.dead = true;
-  if (kind === 'spike') spikes = spikes.filter(s => s !== o);
-  else if (kind === 'saw') saws = saws.filter(s => s !== o);
-  else blocks = blocks.filter(b => b !== o);
+  removeHazard(kind, o);
   const [cx, cy] = hazardCenter(kind, o);
   burst(cx, cy, 18, level.pal.spike);
   burst(cx, cy, 8, '#ffffff');
   shake = Math.max(shake, 4);
+  Sound.smash(); track('smash');
   runCoins++; popup(cx, cy - 10, '+1', '#ffd23f');
+}
+function allHazards() {
+  return [...spikes.map(o => ['spike', o]), ...cspikes.map(o => ['cspike', o]), ...saws.map(o => ['saw', o]), ...blocks.map(o => ['bar', o])];
 }
 // nearest untargeted hazard whose front edge is within `range` px ahead of the player
 function hazardAhead(range) {
   let best = null, bd = Infinity;
-  const consider = (kind, o, front) => {
-    const d = front - (p.x + p.w);
+  for (const [kind, o] of allHazards()) {
+    const d = (kind === 'saw' ? o.x - o.r : o.x) - (p.x + p.w);
     if (!o.targeted && d > -10 && d < range && d < bd) { bd = d; best = { kind, o }; }
-  };
-  for (const s of spikes) consider('spike', s, s.x);
-  for (const s of saws) consider('saw', s, s.x - s.r);
-  for (const b of blocks) consider('bar', b, b.x);
+  }
   return best;
 }
 function hazardTouches(kind, o, px, py, r) {
   if (kind === 'saw') return (px - o.x) ** 2 + (py - sawY(o)) ** 2 < (o.r + r) ** 2;
-  const box = kind === 'spike' ? { x: o.x, y: GROUND - o.h, w: o.w, h: o.h } : o;
+  const box = kind === 'spike' ? { x: o.x, y: GROUND - o.h, w: o.w, h: o.h }
+            : kind === 'cspike' ? { x: o.x, y: CEIL, w: o.w, h: o.h } : o;
   return hit({ x: px - r, y: py - r, w: r * 2, h: r * 2 }, box);
-}
-function allHazards() {
-  return [...spikes.map(o => ['spike', o]), ...saws.map(o => ['saw', o]), ...blocks.map(o => ['bar', o])];
 }
 
 function updateWeapons(dt) {
   const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
   if (save.weapon === 'w_pea' && ammo > 0) {
     const h = hazardAhead(240);
-    if (h) { h.o.targeted = true; ammo--; shots.push({ x: p.x + p.w, y: cy, ...h }); burst(p.x + p.w, cy, 5, '#7dff6b'); }
+    if (h) { h.o.targeted = true; ammo--; shots.push({ x: p.x + p.w, y: cy, ...h }); burst(p.x + p.w, cy, 5, '#7dff6b'); Sound.shoot(); }
   }
   if (save.weapon === 'w_laser') {
     laserCd -= dt;
@@ -386,15 +663,16 @@ function updateWeapons(dt) {
       if (h) {
         const [hx, hy] = hazardCenter(h.kind, h.o);
         beams.push({ x1: p.x + p.w - 6, y1: p.y + 8, x2: hx, y2: hy, life: 0.2 });
-        destroy(h.kind, h.o); laserCd = 4;
+        Sound.laser(); destroy(h.kind, h.o); laserCd = 4;
       }
     }
   }
   if (save.weapon === 'w_blades') {
+    const R = 38 + (p.w - 28) / 2;
     for (const b of blades) {
       b.a += 9 * dt;
       if (!b.alive) { b.regen -= dt; if (b.regen <= 0) b.alive = true; continue; }
-      const bx = cx + Math.cos(b.a) * 38, by = cy + Math.sin(b.a) * 38;
+      const bx = cx + Math.cos(b.a) * R, by = cy + Math.sin(b.a) * R;
       for (const [kind, o] of allHazards()) {
         if (hazardTouches(kind, o, bx, by, 13)) { destroy(kind, o); b.alive = false; b.regen = 5; burst(bx, by, 10, '#b8c4ff'); break; }
       }
@@ -411,31 +689,66 @@ function updateWeapons(dt) {
   shots = shots.filter(s => !s.done);
 }
 function thunderStomp() {
-  rings.push({ x: p.x + p.w / 2, y: GROUND, r: 10, life: 0.45 });
+  rings.push({ x: p.x + p.w / 2, y: p.flip ? CEIL : GROUND, r: 10, life: 0.45 });
   shake = Math.max(shake, 8);
-  for (const s of [...spikes]) if (s.x < p.x + 260 && s.x + s.w > p.x - 30) destroy('spike', s);
-  for (const s of [...saws]) if (s.x < p.x + 260 && s.x > p.x - 30 && sawY(s) > GROUND - 90) destroy('saw', s);
+  Sound.stomp();
+  const near = o => o.x < p.x + 260 && o.x + (o.w || 0) > p.x - 30;
+  for (const s of [...spikes]) if (!p.flip && near(s)) destroy('spike', s);
+  for (const s of [...cspikes]) if (p.flip && near(s)) destroy('cspike', s);
+  for (const s of [...saws]) if (!p.flip && near(s) && sawY(s) > GROUND - 90) destroy('saw', s);
 }
+
+// ---------- power-ups ----------
+function startPower(type) {
+  endPower();
+  const def = POWERS[type];
+  power = { type, time: def.time, max: def.time };
+  track('powerups'); Sound.power();
+  banner = { title: def.icon + ' ' + def.name, sub: def.desc, time: 1.6 };
+  if (type === 'giant') { if (!p.flip) p.y -= 22; p.w = p.h = 50; }
+  if (type === 'coins') {
+    // every hazard on screen turns into coins
+    const onScreen = o => o.x < W + 40;
+    for (const s of spikes.filter(onScreen)) { for (let x = s.x + 11; x < s.x + s.w; x += 22) addCoin(x, GROUND - 22); removeHazard('spike', s); }
+    for (const s of cspikes.filter(onScreen)) { for (let x = s.x + 11; x < s.x + s.w; x += 22) addCoin(x, CEIL + 22); removeHazard('cspike', s); }
+    for (const s of saws.filter(onScreen)) { coins.push({ x: s.x, y: sawY(s), gem: true }); removeHazard('saw', s); }
+    for (const b of blocks.filter(onScreen)) { for (let k = 0.2; k < 1; k += 0.3) addCoin(b.x + b.w * k, b.h - 20); removeHazard('bar', b); }
+    shake = 6;
+  }
+}
+function endPower() {
+  if (!power) return;
+  if (power.type === 'giant') { p.w = p.h = 28; if (!p.flip) p.y += 22; }
+  if (power.type === 'rocket') { invuln = Math.max(invuln, 0.8); p.jumps = 1; p.cut = true; }
+  power = null;
+}
+const overX = s => p.x + p.w > s.x + 3 && p.x < s.x + s.w - 3;
+const overSurface = () => (p.flip ? ceils : segs).some(overX);
 
 // returns true if the player died
 function hurt(kind, o) {
+  if (power && (power.type === 'giant' || power.type === 'rocket')) { destroy(kind, o); return false; }
   if (invuln > 0) return false;
+  run.hits++;
   if (shieldLeft > 0) {
     shieldLeft--; invuln = 1;
     destroy(kind, o);
     popup(p.x + p.w / 2, p.y - 10, 'SHIELD!', '#7cf0ff');
     burst(p.x + p.w / 2, p.y + p.h / 2, 24, '#7cf0ff');
+    Sound.shield();
     return false;
   }
   die(); return true;
 }
-// falling into a pit or hitting a ledge wall: the shield bounces you back up
+// falling into a pit or hitting a ledge wall: the shield bounces you back
 function rescue() {
+  run.hits++;
   if (shieldLeft > 0) {
     shieldLeft--; invuln = 1;
-    p.vy = -JUMP * 1.05; p.jumps = 1; p.cut = true;
+    p.vy = -JUMP * 1.05 * (p.flip ? -1 : 1); p.jumps = 1; p.cut = true;
     popup(p.x + p.w / 2, p.y - 10, 'SAVED!', '#7cf0ff');
     burst(p.x + p.w / 2, p.y + p.h / 2, 24, '#7cf0ff');
+    Sound.shield();
     return false;
   }
   die(); return true;
@@ -444,15 +757,32 @@ function rescue() {
 function die() {
   state = 'dead'; deadAt = performance.now(); shake = 14;
   burst(p.x + p.w / 2, p.y + p.h / 2, 40, '#ff5d73');
+  Sound.stopMusic(); Sound.die();
+  checkMissions();
   const score = Math.floor(dist / 10);
   if (score > best) { best = score; localStorage.setItem('oneButtonJumperBest', best); }
   lastBonus = Math.floor((dist - startDist) / 10 / 50);
   save.coins += runCoins + lastBonus;
+  rotateMissions();
   persist();
 }
 
 // ---------- update ----------
-function update(dt) {
+function landOn(y) {
+  if (!p.onGround) {
+    burst(p.x + p.w / 2, p.flip ? CEIL : GROUND, 6, '#c9c9ff');
+    p.rot = Math.round(p.rot / (Math.PI / 2)) * (Math.PI / 2);
+    Sound.land();
+    if (save.weapon === 'w_stomp' && p.jumps >= 2) thunderStomp();
+  }
+  p.y = y; p.vy = 0; p.onGround = true; p.jumps = 0;
+}
+function leaveGround() {
+  if (p.onGround) { p.coyote = COYOTE; p.jumps = 1; }  // walked off a ledge
+  p.onGround = false;
+}
+
+function update(dt, realDt) {
   t += dt;
   for (const q of parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += q.g * dt; q.life -= dt; }
   parts = parts.filter(q => q.life > 0);
@@ -462,8 +792,9 @@ function update(dt) {
   beams = beams.filter(b => b.life > 0);
   for (const r of rings) { r.r += 600 * dt; r.life -= dt; }
   rings = rings.filter(r => r.life > 0);
-  shake = Math.max(0, shake - 40 * dt);
-  if (banner) { banner.time -= dt; if (banner.time <= 0) banner = null; }
+  shake = Math.max(0, shake - 40 * realDt);
+  if (banner) { banner.time -= realDt; if (banner.time <= 0) banner = null; }
+  if (toast) { toast.time -= realDt; if (toast.time <= 0) toast = null; }
   palBlend = Math.min(1, palBlend + dt);
   if (state !== 'play') return;
   invuln = Math.max(0, invuln - dt);
@@ -474,74 +805,108 @@ function update(dt) {
     prevPal = level.pal; palBlend = 0; level = L;
     banner = { title: 'Level ' + (L.index + 1), sub: L.name, time: 2.5 };
     for (let i = 0; i < 4; i++) burst(rand(100, 700), rand(60, 200), 12, L.pal.edge);
+    Sound.level();
   }
   // speed eases toward the level's speed and creeps up a little within it
   const prog = (dist / 10 - level.at) / (nextLevelAt(level) - level.at);
   const target = level.speed + 25 * Math.min(1, prog);
   speed += (target - speed) * Math.min(1, dt * 1.5);
 
+  // power-up timer (real time, so slow-mo doesn't last longer)
+  if (power) {
+    power.time -= realDt;
+    // the rocket only lets go once there's something to land on
+    if (power.time <= 0 && (power.type !== 'rocket' || overSurface() || power.time < -3)) endPower();
+  }
+
   const dx = speed * dt;
-  dist += dx;
-  for (const s of segs) s.x -= dx;
-  for (const s of spikes) s.x -= dx;
-  for (const b of blocks) b.x -= dx;
+  dist += dx; genX -= dx;
+  for (const list of [segs, spikes, blocks, coins, ceils, cspikes, portals, pups, shots, trail]) for (const o of list) o.x -= dx;
   for (const s of saws) { s.x -= dx; s.spin += dt * 12; }
-  for (const c of coins) c.x -= dx;
-  for (const s of shots) s.x -= dx;
-  for (const q of trail) q.x -= dx;
-  segs = segs.filter(s => s.x + s.w > -50);
-  spikes = spikes.filter(s => s.x + s.w > -50);
-  blocks = blocks.filter(b => b.x + b.w > -50);
+  const onScreen = o => o.x + (o.w || 30) > -50;
+  segs = segs.filter(onScreen); spikes = spikes.filter(onScreen); blocks = blocks.filter(onScreen);
+  ceils = ceils.filter(onScreen); cspikes = cspikes.filter(onScreen); portals = portals.filter(onScreen);
+  pups = pups.filter(o => onScreen(o) && !o.taken);
   saws = saws.filter(s => s.x + s.r > -50);
   coins = coins.filter(c => c.x > -30 && !c.taken);
-  while (segs[segs.length - 1].x < W + 300) genSeg();
+  while (genX < W + 300) genNext();
 
-  // jump (buffered + coyote time)
-  p.coyote -= dt; p.buffer -= dt;
-  if (p.buffer > 0 && (p.onGround || p.coyote > 0)) {
-    p.vy = -JUMP; p.onGround = false; p.coyote = 0; p.buffer = 0; p.jumps = 1; p.cut = false;
-    burst(p.x + p.w / 2, p.y + p.h, 6, '#ffffff');
+  // gravity portals
+  for (const pt of portals) {
+    if (pt.used || pt.x > p.x + p.w / 2) continue;
+    pt.used = true;
+    if (p.flip === pt.flip) continue;
+    p.flip = pt.flip; p.onGround = false; p.jumps = 1; p.cut = true; p.coyote = 0;
+    track('flips'); Sound.flip(); shake = Math.max(shake, 3);
+    popup(p.x + p.w / 2, (CEIL + GROUND) / 2, 'GRAVITY FLIP!', '#c86bff');
   }
 
-  // physics
-  const prevBottom = p.y + p.h;
-  p.vy += G * dt;
-  p.y += p.vy * dt;
-  const over = segs.find(s => p.x + p.w > s.x + 3 && p.x < s.x + s.w - 3);
-  const bottom = p.y + p.h;
-
-  if (over && p.vy >= 0 && prevBottom <= GROUND + 1 && bottom >= GROUND) {
-    if (!p.onGround) {
-      burst(p.x + p.w / 2, GROUND, 6, '#c9c9ff');
-      p.rot = Math.round(p.rot / (Math.PI / 2)) * (Math.PI / 2);
-      if (save.weapon === 'w_stomp' && p.jumps >= 2) thunderStomp();
-    }
-    p.y = GROUND - p.h; p.vy = 0; p.onGround = true; p.jumps = 0;
+  const gd = p.flip ? -1 : 1;
+  if (power && power.type === 'rocket') {
+    // hover above the track, smashing anything in the way
+    const ty = p.flip ? CEIL + 50 : GROUND - 50 - p.h;
+    p.y += (ty - p.y) * Math.min(1, dt * 6);
+    p.vy = 0; p.onGround = false; p.jumps = 1; p.rot = Math.sin(t * 10) * 0.15;
+    parts.push({ x: p.x - 4, y: p.y + p.h / 2 + rand(-5, 5), vx: rand(-260, -160), vy: rand(-30, 30), life: 0.3, max: 0.3, color: pick(['#ff4500', '#ffd23f', '#ff8c42']), s: rand(3, 6), g: 0 });
   } else {
-    if (p.onGround) { p.coyote = COYOTE; p.jumps = 1; }  // walked off a ledge
-    p.onGround = false;
-    if (over && bottom > GROUND + 2) {                   // slammed into a ledge wall
-      if (shieldLeft > 0) p.y = GROUND - p.h - 2;
-      if (rescue()) return;
+    // jump (buffered + coyote time)
+    p.coyote -= dt; p.buffer -= dt;
+    if (p.buffer > 0 && (p.onGround || p.coyote > 0)) {
+      p.vy = -JUMP * gd; p.onGround = false; p.coyote = 0; p.buffer = 0; p.jumps = 1; p.cut = false;
+      track('jumps'); Sound.jump();
+      burst(p.x + p.w / 2, p.flip ? p.y : p.y + p.h, 6, '#ffffff');
     }
+    const prevY = p.y;
+    p.vy += G * gd * dt;
+    p.y += p.vy * dt;
+    if (!p.flip) {
+      const over = segs.find(overX);
+      if (over && p.vy >= 0 && prevY + p.h <= GROUND + 1 && p.y + p.h >= GROUND) landOn(GROUND - p.h);
+      else {
+        leaveGround();
+        if (over && p.y + p.h > GROUND + 2) {               // slammed into a ledge wall
+          if (shieldLeft > 0) p.y = GROUND - p.h - 2;
+          if (rescue()) return;
+        }
+      }
+      if (p.y + p.h > GROUND + 60 && rescue()) return;      // fell into a pit
+    } else {
+      const over = ceils.find(overX);
+      if (over && p.vy <= 0 && prevY >= CEIL - 1 && p.y <= CEIL) landOn(CEIL);
+      else {
+        leaveGround();
+        if (over && p.y < CEIL - 2) {
+          if (shieldLeft > 0) p.y = CEIL + 2;
+          if (rescue()) return;
+        }
+      }
+      if (p.y < CEIL - 60 && rescue()) return;              // fell up into the sky
+    }
+    if (!p.onGround) p.rot += 7 * dt * gd;
   }
-  if (!p.onGround) p.rot += 7 * dt;
-  if (bottom > GROUND + 60 && rescue()) return;
 
   updateWeapons(dt);
 
   // coins (with magnet)
   const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
-  const magnet = [0, 100, 170][save.upg.magnet];
+  const magnet = power && power.type === 'coins' ? 260 : [0, 100, 170][save.upg.magnet];
   for (const c of coins) {
     const d = Math.hypot(c.x - cx, c.y - cy);
     if (d < magnet && d > 1) { const step = Math.min(d, 700 * dt); c.x -= (c.x - cx) / d * step; c.y -= (c.y - cy) / d * step; }
-    if (d < 22) {
+    if (d < p.w / 2 + 8) {
       c.taken = true;
       const value = (c.gem ? 5 : 1) * (save.upg.doubler ? 2 : 1);
       runCoins += value;
+      if (c.gem) { track('gems'); Sound.gem(); } else Sound.coin();
       burst(c.x, c.y, c.gem ? 12 : 5, c.gem ? '#d68bff' : '#ffd23f', 300);
       if (c.gem || value > 1) popup(c.x, c.y - 10, '+' + value, c.gem ? '#d68bff' : '#ffd23f');
+    }
+  }
+  for (const u of pups) {
+    if (Math.hypot(u.x - cx, u.y - cy) < p.w / 2 + 16) {
+      u.taken = true;
+      burst(u.x, u.y, 20, POWERS[u.type].color, 300);
+      startPower(u.type);
     }
   }
 
@@ -552,17 +917,20 @@ function update(dt) {
     parts.push({ x: p.x + rand(0, p.w), y: p.y + rand(0, p.h), vx: rand(-80, -20), vy: rand(-30, 30), life: 0.5, max: 0.5, color: Math.random() < 0.5 ? '#fff' : '#ffe98a', s: rand(1.5, 3.5), g: 0 });
   if (save.trail === 't_fire')
     for (let i = 0; i < 2; i++)
-      parts.push({ x: p.x + rand(0, 8), y: p.y + rand(4, p.h), vx: rand(-200, -80), vy: rand(-120, -20), life: rand(0.25, 0.45), max: 0.45, color: ['#ff4500', '#ff8c00', '#ffd23f'][i + (Math.random() < 0.5 ? 0 : 1)], s: rand(3, 6), g: -300 });
+      parts.push({ x: p.x + rand(0, 8), y: p.y + rand(4, p.h), vx: rand(-200, -80), vy: rand(-120, -20) * gd, life: rand(0.25, 0.45), max: 0.45, color: pick(['#ff4500', '#ff8c00', '#ffd23f']), s: rand(3, 6), g: -300 * gd });
 
   // collisions
   const box = { x: p.x + 3, y: p.y + 3, w: p.w - 6, h: p.h - 6 };
   for (const s of spikes) if (hit(box, { x: s.x + 5, y: GROUND - s.h + 9, w: s.w - 10, h: s.h - 9 }) && hurt('spike', s)) return;
+  for (const s of cspikes) if (hit(box, { x: s.x + 5, y: CEIL, w: s.w - 10, h: s.h - 9 }) && hurt('cspike', s)) return;
   for (const b of blocks) if (hit(box, b) && hurt('bar', b)) return;
   for (const s of saws) {
     const sy = sawY(s), r = s.r - 3;
     const nx = Math.max(box.x, Math.min(s.x, box.x + box.w)), ny = Math.max(box.y, Math.min(sy, box.y + box.h));
     if ((nx - s.x) ** 2 + (ny - sy) ** 2 < r * r && hurt('saw', s)) return;
   }
+
+  checkMissions();
 }
 
 // ---------- render ----------
@@ -606,6 +974,35 @@ function drawCoin(x, y, gem, r = 8) {
   ctx.beginPath(); ctx.ellipse(x, y, r * sx * 0.55, r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
 }
 
+function drawPowerUp(u) {
+  const def = POWERS[u.type], y = u.y + Math.sin(t * 4 + u.x * 0.05) * 5;
+  const glow = ctx.createRadialGradient(u.x, y, 4, u.x, y, 26);
+  glow.addColorStop(0, def.color); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(u.x, y, 26, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(u.x, y, 15 + Math.sin(t * 8) * 1.5, 0, Math.PI * 2); ctx.stroke();
+  ctx.font = '16px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(def.icon, u.x, y + 1);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawPortal(pt) {
+  const cy = (CEIL + GROUND) / 2, ry = (GROUND - CEIL) / 2;
+  ctx.save();
+  ctx.shadowColor = '#c86bff'; ctx.shadowBlur = 20;
+  ctx.strokeStyle = pt.used ? 'rgba(200,107,255,0.35)' : '#c86bff'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.ellipse(pt.x, cy, 16, ry, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(200,107,255,0.15)'; ctx.fill();
+  ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; ctx.font = 'bold 20px system-ui, sans-serif'; ctx.textAlign = 'center';
+  for (let i = 0; i < 3; i++) {
+    const k = ((t * 0.8 + i / 3) % 1);
+    const y = pt.flip ? GROUND - 20 - k * (ry * 2 - 40) : CEIL + 30 + k * (ry * 2 - 40);
+    ctx.globalAlpha = Math.sin(k * Math.PI);
+    ctx.fillText(pt.flip ? '▲' : '▼', pt.x, y);
+  }
+  ctx.restore();
+}
+
 function skinStyle() {
   const s = byId(save.skin) || ITEMS.skins[0];
   if (s.special === 'rainbow') { const c = `hsl(${(t * 200) % 360},90%,62%)`; return { fill: c, glow: c, eyes: '#0f0f1e', alpha: 1 }; }
@@ -645,23 +1042,28 @@ function draw() {
     ctx.restore();
   }
 
-  // ground
+  // ground and ceiling
   for (const s of segs) {
     ctx.fillStyle = pal.ground; ctx.fillRect(s.x, GROUND, s.w, H - GROUND);
     ctx.fillStyle = pal.edge; ctx.fillRect(s.x, GROUND, s.w, 5);
   }
+  for (const c of ceils) {
+    ctx.fillStyle = pal.ground; ctx.fillRect(c.x, -20, c.w, CEIL + 20);
+    ctx.fillStyle = pal.edge; ctx.fillRect(c.x, CEIL - 5, c.w, 5);
+  }
 
   // spikes
   ctx.fillStyle = pal.spike;
-  for (const s of spikes) {
-    ctx.beginPath();
-    for (let x = s.x; x < s.x + s.w - 1; x += 22) {
-      ctx.moveTo(x, GROUND); ctx.lineTo(x + 11, GROUND - s.h); ctx.lineTo(x + 22, GROUND);
-    }
-    ctx.fill();
-  }
+  ctx.beginPath();
+  for (const s of spikes)
+    for (let x = s.x; x < s.x + s.w - 1; x += 22) { ctx.moveTo(x, GROUND); ctx.lineTo(x + 11, GROUND - s.h); ctx.lineTo(x + 22, GROUND); }
+  for (const s of cspikes)
+    for (let x = s.x; x < s.x + s.w - 1; x += 22) { ctx.moveTo(x, CEIL); ctx.lineTo(x + 11, CEIL + s.h); ctx.lineTo(x + 22, CEIL); }
+  ctx.fill();
   for (const s of saws) drawSaw(s, pal.spike);
+  for (const pt of portals) drawPortal(pt);
   for (const c of coins) drawCoin(c.x, c.y, c.gem);
+  for (const u of pups) drawPowerUp(u);
 
   // rainbow trail
   if (save.trail === 't_rainbow' && state === 'play' && trail.length > 1) {
@@ -694,26 +1096,28 @@ function draw() {
 
   // player
   if (state !== 'dead' && !(invuln > 0 && Math.floor(t * 20) % 2)) {
-    const sk = skinStyle();
+    const sk = skinStyle(), k = p.w / 28;
     const pcx = p.x + p.w / 2, pcy = p.y + p.h / 2;
     ctx.save();
     ctx.globalAlpha = sk.alpha;
-    ctx.translate(pcx, pcy); ctx.rotate(p.rot);
-    ctx.shadowColor = sk.glow; ctx.shadowBlur = 16;
-    ctx.fillStyle = sk.fill; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    ctx.translate(pcx, pcy); ctx.rotate(p.rot); ctx.scale(k, k);
+    if (p.flip) ctx.scale(1, -1);
+    ctx.shadowColor = power ? POWERS[power.type].color : sk.glow; ctx.shadowBlur = power ? 26 : 16;
+    ctx.fillStyle = sk.fill; ctx.fillRect(-14, -14, 28, 28);
     ctx.shadowBlur = 0; ctx.fillStyle = sk.eyes;
+    if (save.weapon === 'w_laser' && laserCd < 0.6) ctx.fillStyle = '#ff3355';
     ctx.fillRect(2, -7, 5, 5); ctx.fillRect(-7, -7, 5, 5);
-    if (save.weapon === 'w_laser' && laserCd < 0.6) { ctx.fillStyle = '#ff3355'; ctx.fillRect(2, -7, 5, 5); ctx.fillRect(-7, -7, 5, 5); }
     ctx.restore();
     if (shieldLeft > 0) {
       ctx.strokeStyle = `rgba(124,240,255,${0.5 + Math.sin(t * 5) * 0.2})`; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(pcx, pcy, 24, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(pcx, pcy, 24 * k, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = 'rgba(124,240,255,0.08)'; ctx.fill();
     }
     if (save.weapon === 'w_blades' && state === 'play') {
+      const R = 38 + (p.w - 28) / 2;
       for (const b of blades) {
         if (!b.alive) continue;
-        ctx.save(); ctx.translate(pcx + Math.cos(b.a) * 38, pcy + Math.sin(b.a) * 38); ctx.rotate(t * 20);
+        ctx.save(); ctx.translate(pcx + Math.cos(b.a) * R, pcy + Math.sin(b.a) * R); ctx.rotate(t * 20);
         ctx.fillStyle = '#d8e0ff'; ctx.shadowColor = '#b8c4ff'; ctx.shadowBlur = 10;
         ctx.beginPath();
         for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.lineTo(Math.cos(a) * 11, Math.sin(a) * 11); ctx.lineTo(Math.cos(a + 0.6) * 4, Math.sin(a + 0.6) * 4); }
@@ -731,6 +1135,13 @@ function draw() {
   for (const q of popups) { ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.color; ctx.fillText(q.text, q.x, q.y); }
   ctx.globalAlpha = 1;
   ctx.restore();
+
+  // slow-mo tint
+  if (power && power.type === 'slow' && state === 'play') {
+    const v = ctx.createRadialGradient(W / 2, H / 2, 150, W / 2, H / 2, 480);
+    v.addColorStop(0, 'rgba(124,240,255,0)'); v.addColorStop(1, 'rgba(124,240,255,0.28)');
+    ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  }
 
   // HUD
   const meters = Math.floor(dist / 10);
@@ -752,6 +1163,13 @@ function draw() {
     if (save.weapon === 'w_blades') status.push('🌀×' + blades.filter(b => b.alive).length);
     ctx.font = '14px system-ui, sans-serif'; ctx.fillStyle = '#fff';
     ctx.fillText(status.join('   '), 20, 92);
+    // active power-up timer
+    if (power && state === 'play') {
+      const def = POWERS[power.type];
+      ctx.fillText(def.icon, 20, 116);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(44, 106, 120, 8);
+      ctx.fillStyle = def.color; ctx.fillRect(44, 106, 120 * Math.max(0, power.time / power.max), 8);
+    }
   }
   ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '16px system-ui, sans-serif';
   ctx.fillText('Best: ' + best + ' m', W - 20, 30);
@@ -759,13 +1177,26 @@ function draw() {
   ctx.fillStyle = '#ffd23f'; ctx.font = 'bold 16px system-ui, sans-serif';
   ctx.fillText(state === 'play' ? runCoins : save.coins, W - 42, 56);
 
-  // level banner
+  // mission complete toast
+  if (toast && state === 'play') {
+    ctx.globalAlpha = Math.min(1, toast.time * 2);
+    ctx.font = 'bold 15px system-ui, sans-serif';
+    const msg = 'MISSION COMPLETE  ' + toast.text + '   +' + toast.reward + ' 🪙';
+    const tw = ctx.measureText(msg).width + 30;
+    ctx.fillStyle = 'rgba(20,60,30,0.9)';
+    ctx.beginPath(); ctx.roundRect(W / 2 - tw / 2, H - 46, tw, 30, 15); ctx.fill();
+    ctx.fillStyle = '#7dff6b'; ctx.textAlign = 'center';
+    ctx.fillText(msg, W / 2, H - 26);
+    ctx.globalAlpha = 1;
+  }
+
+  // level / power-up banner
   if (banner && state === 'play') {
     const a = Math.min(1, banner.time / 0.5, (2.5 - banner.time) / 0.3 + 0.2);
     ctx.globalAlpha = Math.max(0, a);
     ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-    ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText(banner.title.toUpperCase(), W / 2, 140);
-    ctx.font = '20px system-ui, sans-serif'; ctx.fillStyle = pal.edge; ctx.fillText(banner.sub, W / 2, 172);
+    ctx.font = 'bold 40px system-ui, sans-serif'; ctx.fillText(banner.title.toUpperCase(), W / 2, 150);
+    ctx.font = '20px system-ui, sans-serif'; ctx.fillStyle = pal.edge; ctx.fillText(banner.sub, W / 2, 182);
     ctx.globalAlpha = 1;
   }
 
@@ -773,21 +1204,22 @@ function draw() {
     ctx.fillStyle = 'rgba(10,8,25,0.55)'; ctx.fillRect(0, 0, W, H);
     ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     ctx.font = 'bold 44px system-ui, sans-serif';
-    ctx.fillText(state === 'menu' ? 'ONE BUTTON JUMPER' : meters + ' m', W / 2, 110);
+    ctx.fillText(state === 'menu' ? 'ONE BUTTON JUMPER' : meters + ' m', W / 2, 100);
     ctx.font = '18px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.85)';
     if (state === 'menu') {
-      ctx.fillText('Tap for a short hop, hold for a big jump', W / 2, 160);
-      ctx.fillText('Press again in the air to double jump', W / 2, 188);
-      ctx.fillText('Collect coins and spend them in the store', W / 2, 216);
+      ctx.fillText('Tap for a short hop, hold for a big jump', W / 2, 145);
+      ctx.fillText('Press again in the air to double jump', W / 2, 172);
+      ctx.fillText('Grab power-ups, flip gravity, complete missions', W / 2, 199);
     } else {
-      ctx.fillText('Reached level ' + (level.index + 1) + ': ' + level.name, W / 2, 150);
+      ctx.fillText('Reached level ' + (level.index + 1) + ': ' + level.name, W / 2, 138);
       ctx.fillStyle = '#ffd23f';
-      ctx.fillText('+' + runCoins + ' coins collected   +' + lastBonus + ' distance bonus', W / 2, 180);
-      if (meters >= best && best > 0) { ctx.fillStyle = '#5ee6ff'; ctx.fillText('★ New best! ★', W / 2, 210); }
+      ctx.fillText('+' + runCoins + ' coins collected   +' + lastBonus + ' distance bonus', W / 2, 166);
+      if (run.completed) { ctx.fillStyle = '#7dff6b'; ctx.fillText('✔ ' + run.completed + ' mission' + (run.completed > 1 ? 's' : '') + ' complete! +' + run.reward + ' coins', W / 2, 194); }
+      else if (meters >= best && best > 0) { ctx.fillStyle = '#5ee6ff'; ctx.fillText('★ New best! ★', W / 2, 194); }
     }
     if (Math.sin(t * 5) > -0.3) {
       ctx.fillStyle = '#5ee6ff'; ctx.font = 'bold 20px system-ui, sans-serif';
-      ctx.fillText('Press SPACE / click / tap to ' + (state === 'menu' ? 'start' : 'retry'), W / 2, 270);
+      ctx.fillText('Press SPACE / click / tap to ' + (state === 'menu' ? 'start' : 'retry'), W / 2, 260);
     }
     if (save.headStarts > 0) {
       ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '14px system-ui, sans-serif';
@@ -800,9 +1232,13 @@ let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.033, (now - last) / 1000);
   last = now;
-  update(dt);
+  timeScale = state === 'play' && power && power.type === 'slow' ? 0.55 : 1;
+  update(dt * timeScale, dt);
   draw();
-  storeBtn.hidden = state === 'play' || !storeEl.hidden;
+  Sound.tick();
+  menuBtns.hidden = state === 'play' || panelOpen();
+  const label = '📋 Missions' + (save.missions.some(m => m.isNew) ? `<span class="badge">${save.missions.filter(m => m.isNew).length}</span>` : '');
+  if (missionsBtn.innerHTML !== label) missionsBtn.innerHTML = label;
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
